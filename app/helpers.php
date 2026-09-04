@@ -1,0 +1,61 @@
+<?php
+
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
+
+if (! function_exists('thai_date')) {
+    /** วันที่แบบไทย เช่น "พฤหัสบดีที่ 4 กันยายน 2569" */
+    function thai_date(CarbonInterface|string $date, bool $short = false): string
+    {
+        $date = $date instanceof CarbonInterface ? $date : Carbon::parse($date);
+
+        $days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+        $months = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        $monthsShort = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+            'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+        $year = $date->year + 543;
+
+        if ($short) {
+            return $date->day.' '.$monthsShort[$date->month].' '.substr((string) $year, -2);
+        }
+
+        return $days[$date->dayOfWeek].'ที่ '.$date->day.' '.$months[$date->month].' '.$year;
+    }
+}
+
+if (! function_exists('thai_month')) {
+    /** เดือนและปีแบบไทย เช่น "กันยายน 2569" */
+    function thai_month(CarbonInterface|string $date): string
+    {
+        $date = $date instanceof CarbonInterface ? $date : Carbon::parse($date);
+
+        $months = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+        return $months[$date->month].' '.($date->year + 543);
+    }
+}
+
+if (! function_exists('baht')) {
+    /** จัดรูปแบบจำนวนเงิน/ตัวเลขให้มีลูกน้ำ */
+    function baht(int|float $amount): string
+    {
+        return number_format($amount);
+    }
+}
+
+if (! function_exists('phone_format')) {
+    /** เบอร์โทรในฐานข้อมูลเก็บเป็นตัวเลขล้วน แสดงผลเป็น 088-4535-354 */
+    function phone_format(?string $phone): string
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+
+        if (strlen($digits) !== 10) {
+            return (string) $phone;
+        }
+
+        return substr($digits, 0, 3).'-'.substr($digits, 3, 4).'-'.substr($digits, 7);
+    }
+}

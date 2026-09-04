@@ -1,0 +1,47 @@
+*.log
+.DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+Thumbs.db
+
+# ---- โปรเจกต์นี้ ----
+# ไฟล์ฐานข้อมูล / สคีมา ไม่ต้องขึ้น repo
+/database/sql/
+*.sql
+*.sqlite
+*.sqlite3
+*.dump
+
+# ไฟล์ .env ทุกแบบ ยกเว้นตัวอย่าง
+.env.*
+!.env.example
+
+# เครื่องมือ/เอเจนต์
+/.claude
+
+# เอกสาร/เทสต์ ไม่ต้องขึ้น repo
+/README.md
+/tests/
+/phpunit.xml

@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Enums\Role;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreUserRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()?->canManageUsers() ?? false;
+    }
+
+    /**
+     * @return array<string, array<int, mixed>>
+     */
+    public function rules(): array
+    {
+        return [
+            'username' => ['required', 'string', 'alpha_dash', 'max:50', 'unique:users,username'],
+            'name' => ['required', 'string', 'max:100'],
+            'email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
+            'role' => ['required', Rule::enum(Role::class)],
+            'password' => ['required', 'string', 'min:6', 'max:100', 'confirmed'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'username.required' => 'กรุณากรอกชื่อผู้ใช้',
+            'username.alpha_dash' => 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 ขีดกลาง และขีดล่าง',
+            'username.unique' => 'ชื่อผู้ใช้นี้มีคนใช้แล้ว',
+            'name.required' => 'กรุณากรอกชื่อที่จะแสดงในระบบ',
+            'email.email' => 'รูปแบบอีเมลไม่ถูกต้อง',
+            'email.unique' => 'อีเมลนี้ถูกใช้ไปแล้ว',
+            'role.required' => 'กรุณาเลือกสิทธิ์การใช้งาน',
+            'password.required' => 'กรุณากรอกรหัสผ่าน',
+            'password.min' => 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร',
+            'password.confirmed' => 'ยืนยันรหัสผ่านไม่ตรงกัน',
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'username' => trim((string) $this->input('username')),
+            'email' => trim((string) $this->input('email')) ?: null,
+        ]);
+    }
+}
