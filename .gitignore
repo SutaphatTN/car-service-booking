@@ -34,9 +34,8 @@ Thumbs.db
 *.sqlite3
 *.dump
 
-# ไฟล์ .env ทุกแบบ ยกเว้นตัวอย่าง
+# ไฟล์ .env ทุกแบบ รวม .env.example
 .env.*
-.env.example
 
 # เครื่องมือ/เอเจนต์
 /.claude
