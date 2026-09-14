@@ -55,6 +55,11 @@
                 </label>
             </div>
 
+            @include('partials.user-brand-fields', [
+                'currentBrandId' => $user->brand_id,
+                'currentExtraBrandIds' => $extraBrandIds,
+            ])
+
             <label class="field" style="margin-top:14px">รหัสผ่านปัจจุบัน
                 <div class="input-reveal">
                     <input type="password" id="currentPassword" readonly tabindex="-1" autocomplete="off"

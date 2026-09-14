@@ -7,6 +7,7 @@ use App\Models\Title;
 use App\Support\Schedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class CalendarController extends Controller
@@ -67,7 +68,7 @@ class CalendarController extends Controller
      * ข้อมูลนัดหมายทั้งเดือนในรูปแบบที่ฝั่งหน้าเว็บใช้แสดงแผงด้านขวาได้ทันที
      * (กดเปลี่ยนวันแล้วไม่ต้องโหลดหน้าใหม่)
      *
-     * @param  \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, Appointment>>  $byDate
+     * @param  Collection<string, Collection<int, Appointment>>  $byDate
      * @return array<string, list<array<string, string>>>
      */
     private function eventsPayload($byDate): array
@@ -75,8 +76,11 @@ class CalendarController extends Controller
         return $byDate->map(fn ($appointments) => $appointments->map(fn (Appointment $appointment) => [
             'time' => $appointment->appointment_at->format('H:i'),
             'name' => $appointment->fullName(),
-            'phone' => phone_format($appointment->phone),
+            'phone' => phone_format($appointment->phone) ?: 'ไม่มีเบอร์',
+            'phone2' => $appointment->phone2 ? phone_format($appointment->phone2) : '',
             'mileage' => baht($appointment->mileage),
+            'vin' => $appointment->vin ?? '',
+            'delivered' => $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : '',
             'creator' => $appointment->creator?->name ?? '-',
         ])->all())->all();
     }

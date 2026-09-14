@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\Role;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\Brand;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -12,10 +13,12 @@ use Illuminate\View\View;
 /** จัดการผู้ใช้ — เข้าได้เฉพาะ admin (กำหนดไว้ที่ route) */
 class UserController extends Controller
 {
+    /** เห็นผู้ใช้ทุกยี่ห้อ ไม่กรองตามยี่ห้อที่กำลังดูอยู่ จะได้ดูแลบัญชีได้จากที่เดียว */
     public function index(): View
     {
         return view('users.index', [
-            'users' => User::withCount('appointments')
+            'users' => User::with(['brand', 'extraBrands'])
+                ->withCount('appointments')
                 ->orderBy('role')
                 ->orderBy('username')
                 ->get(),
@@ -26,6 +29,7 @@ class UserController extends Controller
     {
         return view('users.create', [
             'roles' => Role::options(),
+            'brands' => Brand::active()->get(),
         ]);
     }
 
@@ -34,6 +38,8 @@ class UserController extends Controller
         return view('users.edit', [
             'user' => $user,
             'roles' => Role::options(),
+            'brands' => Brand::active()->get(),
+            'extraBrandIds' => $user->extraBrands()->pluck('brands.id')->all(),
         ]);
     }
 
@@ -44,6 +50,7 @@ class UserController extends Controller
             'name' => $request->validated('name'),
             'email' => $request->validated('email'),
             'role' => $request->validated('role'),
+            'brand_id' => $request->validated('brand_id'),
             'is_active' => $request->boolean('is_active'),
         ]);
 
@@ -54,6 +61,7 @@ class UserController extends Controller
         }
 
         $user->save();
+        $user->extraBrands()->sync($request->extraBrandIds());
 
         return redirect()
             ->route('users.index')
@@ -70,8 +78,11 @@ class UserController extends Controller
             // คอลัมน์ password ถูก cast เป็น hashed ส่วน password_plain เก็บรหัสจริงไว้ดูในฐานข้อมูล
             'password' => $request->validated('password'),
             'password_plain' => $request->validated('password'),
+            'brand_id' => $request->validated('brand_id'),
             'is_active' => $request->boolean('is_active'),
         ]);
+
+        $user->extraBrands()->sync($request->extraBrandIds());
 
         return redirect()
             ->route('users.index')

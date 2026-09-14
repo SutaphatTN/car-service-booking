@@ -64,6 +64,26 @@ return [
             ]) : [],
         ],
 
+        /*
+        | ฐานข้อมูลฝ่ายขายรถ (new_cars) — อ่านอย่างเดียว ใช้ดึงรถที่ส่งมอบแล้ว
+        | ตอนนี้อยู่เซิร์ฟเวอร์เดียวกัน แต่แยก connection ไว้ เผื่อวันหนึ่งย้ายไปคนละเครื่อง
+        | จะได้แก้แค่ .env ไม่ต้องแก้โค้ด (ถ้า hard-code ชื่อฐานข้อมูลในคิวรีจะย้ายไม่ได้)
+        */
+        'sales' => [
+            'driver' => 'mysql',
+            'host' => env('SALES_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('SALES_DB_PORT', env('DB_PORT', '3306')),
+            'database' => env('SALES_DB_DATABASE', 'new_cars'),
+            'username' => env('SALES_DB_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('SALES_DB_PASSWORD', env('DB_PASSWORD', '')),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

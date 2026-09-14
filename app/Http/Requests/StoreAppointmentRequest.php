@@ -22,6 +22,10 @@ class StoreAppointmentRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'phone' => ['required', 'string', 'regex:/^0[0-9]{9}$/'],
+            'phone2' => ['nullable', 'string', 'regex:/^0[0-9]{9}$/'],
+            // VIN ตามมาตรฐาน ISO 3779 — 17 หลัก ไม่มีตัว I O Q (กันสับสนกับเลข 1 กับ 0)
+            'vin' => ['required', 'string', 'size:17', 'regex:/^[A-HJ-NPR-Z0-9]{17}$/'],
+            'delivered_at' => ['nullable', 'date_format:Y-m-d'],
             'mileage' => ['required', 'integer', 'min:0', 'max:9999999'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'date_format:H:i'],
@@ -40,6 +44,11 @@ class StoreAppointmentRequest extends FormRequest
             'last_name.required' => 'กรุณากรอกนามสกุล',
             'phone.required' => 'กรุณากรอกเบอร์โทร',
             'phone.regex' => 'เบอร์โทรต้องขึ้นต้นด้วย 0 และมี 10 หลัก',
+            'phone2.regex' => 'เบอร์สำรองต้องขึ้นต้นด้วย 0 และมี 10 หลัก',
+            'vin.required' => 'กรุณากรอกเลขตัวถัง (VIN)',
+            'vin.size' => 'เลขตัวถัง (VIN) ต้องมี 17 หลัก',
+            'vin.regex' => 'เลขตัวถัง (VIN) ใช้ได้เฉพาะ A-Z และ 0-9 ยกเว้นตัว I O Q',
+            'delivered_at.date_format' => 'รูปแบบวันที่ส่งมอบไม่ถูกต้อง',
             'mileage.required' => 'กรุณากรอกเลขไมล์',
             'mileage.integer' => 'เลขไมล์ต้องเป็นตัวเลข',
             'appointment_date.required' => 'กรุณาเลือกวันที่นัด',
@@ -53,6 +62,10 @@ class StoreAppointmentRequest extends FormRequest
     {
         $this->merge([
             'phone' => preg_replace('/\D/', '', (string) $this->input('phone')),
+            'phone2' => preg_replace('/\D/', '', (string) $this->input('phone2')) ?: null,
+            // VIN พิมพ์เล็กหรือมีเว้นวรรค/ขีดคั่นมาก็รับได้ เก็บเป็นตัวพิมพ์ใหญ่ล้วน
+            'vin' => strtoupper(str_replace([' ', '-'], '', trim((string) $this->input('vin')))) ?: null,
+            'delivered_at' => trim((string) $this->input('delivered_at')) ?: null,
             'mileage' => is_string($this->input('mileage'))
                 ? str_replace([',', ' '], '', $this->input('mileage'))
                 : $this->input('mileage'),

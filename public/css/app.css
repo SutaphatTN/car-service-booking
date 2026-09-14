@@ -408,3 +408,100 @@ dialog.modal::backdrop { background: rgba(12, 20, 38, .48); backdrop-filter: blu
   .grid.cols-3 { grid-template-columns: 1fr; }
   .day-panel { top: 12px; }
 }
+
+/* =========================================================
+   ปุ่มสลับยี่ห้อรถ (ในเมนูบัญชี)
+   ========================================================= */
+.brand-switch { padding: 4px 12px 10px; border-bottom: 1px solid var(--line-soft); margin-bottom: 6px; }
+.brand-switch-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; color: var(--muted);
+  letter-spacing: .3px; margin-bottom: 7px;
+}
+.brand-switch-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.brand-switch-list form { display: contents; }
+.account-drop .brand-switch-btn {
+  display: inline-block; width: auto; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface);
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
+  cursor: pointer; white-space: nowrap;
+}
+.account-drop .brand-switch-btn:hover { background: var(--line-soft); color: var(--ink); }
+.account-drop .brand-switch-btn.active {
+  background: var(--brand); border-color: var(--brand); color: #fff;
+}
+.account-drop .brand-switch-btn.active:hover { background: var(--brand-dark); color: #fff; }
+.account-drop .brand-switch-reset {
+  display: inline-block; width: auto; margin-top: 8px; padding: 4px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: transparent;
+  font: inherit; font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer;
+}
+.account-drop .brand-switch-reset:hover { background: var(--line-soft); color: var(--ink-soft); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+
+/* ช่องติ๊กยี่ห้อในฟอร์มผู้ใช้ */
+.brand-picker { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 4px; }
+.brand-picker .check { margin-top: 0; }
+
+/* เลขตัวถัง VIN — ตัวอักษรความกว้างเท่ากัน อ่าน/เทียบทีละหลักได้ง่าย */
+code.vin { font-size: 12px; letter-spacing: .4px; padding: 2px 6px; white-space: nowrap; }
+.vin-input { font-family: "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas, monospace; letter-spacing: .5px; text-transform: uppercase; }
+
+/* =========================================================
+   รายการต้องโทรหาลูกค้า
+   ========================================================= */
+tr.row-overdue td { background: #fffaf5; }
+tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.overdue-note { color: var(--warn); }
+.no-phone { color: var(--danger); }
+.source-missing { color: var(--warn); font-weight: 600; }
+.phone-bad { color: var(--warn); text-decoration: underline dotted; }
+.phone-warn { color: var(--warn); font-size: 12px; margin-inline-start: 2px; }
+
+/* =========================================================
+   แถบเครื่องมือหัวหน้า + ช่องค้นหา
+   ========================================================= */
+
+/* กลุ่มปุ่ม/ช่องค้นหาที่อยู่ขวาสุดของหัวข้อหน้า */
+.page-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+.search-box { display: flex; align-items: center; gap: 8px; }
+
+.search-field { position: relative; width: 230px; }
+.search-field input {
+  /* ชิดกับปุ่มข้าง ๆ จึงไม่เอา margin-top ของ input ทั่วไป และเว้นที่ให้ไอคอนสองข้าง */
+  margin-top: 0; padding: 8px 30px 8px 34px; font-size: 13.5px;
+  background: var(--surface);
+}
+.search-field input::placeholder { color: #98a2b3; }
+
+.search-icon {
+  position: absolute; inset-inline-start: 11px; top: 50%; transform: translateY(-50%);
+  width: 15px; height: 15px; color: var(--muted); pointer-events: none;
+}
+.search-icon svg { width: 100%; height: 100%; display: block; }
+
+.search-clear {
+  position: absolute; inset-inline-end: 6px; top: 50%; transform: translateY(-50%);
+  width: 19px; height: 19px; border-radius: 50%;
+  display: grid; place-items: center; text-decoration: none;
+  font-size: 15px; line-height: 1; color: var(--muted); background: var(--line-soft);
+}
+.search-clear:hover { background: var(--line); color: var(--ink); }
+
+.search-go { flex: none; padding: 8px 14px; font-size: 13.5px; }
+
+/* จอแคบ — ให้แถบเครื่องมือลงมาเต็มบรรทัดแล้วช่องค้นหายืดเอง */
+@media (max-width: 760px) {
+  .page-tools { width: 100%; justify-content: stretch; }
+  .search-box { flex: 1 1 100%; }
+  .search-field { flex: 1 1 auto; width: auto; }
+}
+
+/* สถานะคิวเช็คระยะ */
+.badge.status-waiting { background: #fdf0dc; color: var(--warn); }
+.badge.status-booked  { background: var(--brand-soft); color: var(--brand-ink); }
+.badge.status-done    { background: var(--ok-soft); color: var(--ok); }
+.model-name { font-size: 13.5px; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+.row-actions form { display: contents; }

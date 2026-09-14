@@ -25,7 +25,17 @@
             </span>
             <span class="brand-text">
                 <h1>{{ config('app.name') }}</h1>
-                <p>ระบบนัดหมายสำหรับใช้งานภายใน</p>
+                <p>
+                    @auth
+                        @if ($activeBrand = current_brand())
+                            ยี่ห้อ {{ $activeBrand->name }}
+                        @else
+                            ระบบนัดหมายสำหรับใช้งานภายใน
+                        @endif
+                    @else
+                        ระบบนัดหมายสำหรับใช้งานภายใน
+                    @endauth
+                </p>
             </span>
         </a>
 
@@ -46,6 +56,8 @@
                         <div class="who">{{ '@'.auth()->user()->username }}</div>
                         <span class="badge role-{{ auth()->user()->role->value }}">{{ auth()->user()->role->label() }}</span>
                     </div>
+
+                    @include('partials.brand-switch')
 
                     @if (auth()->user()->canManageUsers())
                         <a href="{{ route('users.create') }}">ลงทะเบียนผู้ใช้ใหม่</a>
@@ -68,6 +80,7 @@
         <div class="wrap">
             <a href="{{ route('appointments.index') }}" @class(['active' => request()->routeIs('appointments.index')])>รายการนัดหมาย</a>
             <a href="{{ route('calendar.index') }}" @class(['active' => request()->routeIs('calendar.*')])>ปฏิทิน</a>
+            <a href="{{ route('calls.index') }}" @class(['active' => request()->routeIs('calls.*')])>ต้องโทรหา</a>
             <a href="{{ route('reports.index') }}" @class(['active' => request()->routeIs('reports.*')])>รายงาน</a>
         </div>
     </nav>

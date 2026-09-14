@@ -110,9 +110,23 @@
 
                 const detail = document.createElement('div');
                 detail.className = 'sub';
-                detail.textContent = item.phone + ' · ' + item.mileage + ' กม. · บันทึกโดย ' + item.creator;
+                detail.textContent = item.phone
+                    + (item.phone2 ? ' (สำรอง ' + item.phone2 + ')' : '')
+                    + ' · ' + item.mileage + ' กม. · บันทึกโดย ' + item.creator;
 
                 row.append(time, name, detail);
+
+                // VIN กับวันส่งมอบเป็นช่องไม่บังคับ มีค่อยแสดงบรรทัดนี้
+                if (item.vin || item.delivered) {
+                    const car = document.createElement('div');
+                    car.className = 'sub';
+                    car.textContent = [
+                        item.vin ? 'VIN ' + item.vin : '',
+                        item.delivered ? 'ส่งมอบ ' + item.delivered : '',
+                    ].filter(Boolean).join(' · ');
+
+                    row.append(car);
+                }
                 panelList.append(row);
             }
         }

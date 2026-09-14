@@ -18,6 +18,7 @@
                 <tr>
                     <th style="width:200px">ผู้ใช้</th>
                     <th style="width:150px">สิทธิ์</th>
+                    <th style="width:170px">ยี่ห้อ</th>
                     <th>อีเมล</th>
                     <th class="right" style="width:120px">บันทึกนัดแล้ว</th>
                     <th style="width:110px">สถานะ</th>
@@ -33,6 +34,12 @@
                             <div class="sub">{{ '@'.$user->username }}</div>
                         </td>
                         <td><span class="badge role-{{ $user->role->value }}">{{ $user->role->label() }}</span></td>
+                        <td>
+                            <b>{{ $user->brand?->name ?? '-' }}</b>
+                            @if ($user->extraBrands->isNotEmpty())
+                                <div class="sub">+ {{ $user->extraBrands->pluck('name')->join(', ') }}</div>
+                            @endif
+                        </td>
                         <td class="sub">{{ $user->email ?: '-' }}</td>
                         <td class="right">{{ baht($user->appointments_count) }}</td>
                         <td>

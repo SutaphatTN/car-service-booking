@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Brand;
+use App\Support\CurrentBrand;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
@@ -57,5 +59,21 @@ if (! function_exists('phone_format')) {
         }
 
         return substr($digits, 0, 3).'-'.substr($digits, 3, 4).'-'.substr($digits, 7);
+    }
+}
+
+if (! function_exists('current_brand')) {
+    /** ยี่ห้อรถที่กำลังทำงานอยู่ในคำขอนี้ — null เมื่อยังไม่ได้เข้าสู่ระบบ */
+    function current_brand(): ?Brand
+    {
+        return app(CurrentBrand::class)->get();
+    }
+}
+
+if (! function_exists('current_brand_id')) {
+    /** id ของยี่ห้อที่กำลังทำงานอยู่ — global scope ของ Appointment ใช้ค่านี้กรองข้อมูล */
+    function current_brand_id(): ?int
+    {
+        return app(CurrentBrand::class)->id();
     }
 }

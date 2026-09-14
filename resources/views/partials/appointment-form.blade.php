@@ -45,10 +45,42 @@
                     @enderror
                 </label>
 
+                <label class="field">เบอร์สำรอง <span class="muted">(ไม่บังคับ)</span>
+                    <input name="phone2" value="{{ phone_format(old('phone2')) }}"
+                           inputmode="numeric" autocomplete="off" maxlength="12" placeholder="088-4535-354"
+                           class="@error('phone2') is-invalid @enderror">
+                    @error('phone2') <span class="err">{{ $message }}</span> @enderror
+                </label>
+            </div>
+
+            <div class="grid cols-2" style="margin-top:12px">
                 <label class="field">เลขไมล์ (กม.)
                     <input name="mileage" value="{{ old('mileage') }}" inputmode="numeric" placeholder="45000"
                            class="@error('mileage') is-invalid @enderror" required>
                     @error('mileage') <span class="err">{{ $message }}</span> @enderror
+                </label>
+            </div>
+
+            <div class="grid cols-2" style="margin-top:12px">
+                <label class="field">เลขตัวถัง VIN
+                    <input id="vinInput" name="vin" value="{{ old('vin') }}" maxlength="17"
+                           autocomplete="off" spellcheck="false" placeholder="LGWEF4A50NH123456"
+                           class="vin-input @error('vin') is-invalid @enderror" required>
+                    @error('vin')
+                        <span class="err">{{ $message }}</span>
+                    @else
+                        <span class="hint-inline">17 หลัก ระบบเปลี่ยนเป็นตัวพิมพ์ใหญ่ให้เอง</span>
+                    @enderror
+                </label>
+
+                <label class="field">วันที่ส่งมอบจริง <span class="muted">(ไม่บังคับ)</span>
+                    <input type="date" name="delivered_at" value="{{ old('delivered_at') }}"
+                           class="@error('delivered_at') is-invalid @enderror">
+                    @error('delivered_at')
+                        <span class="err">{{ $message }}</span>
+                    @else
+                        <span class="hint-inline">วันที่ลูกค้ารับรถจริง เว้นว่างได้ถ้ายังไม่ทราบ</span>
+                    @enderror
                 </label>
             </div>
 
@@ -131,6 +163,19 @@
         });
 
         phoneInput.value = formatPhone(phoneInput.value);
+
+        // VIN: พิมพ์เล็กหรือใส่เว้นวรรค/ขีดมาก็แปลงให้เป็นตัวพิมพ์ใหญ่ล้วนทันที
+        const vinInput = document.getElementById('vinInput');
+
+        vinInput.addEventListener('input', () => {
+            const caret = vinInput.selectionStart;
+            const cleaned = vinInput.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+
+            if (cleaned !== vinInput.value) {
+                vinInput.value = cleaned;
+                vinInput.setSelectionRange(caret, caret);
+            }
+        });
 
         @if ($errors->any())
             dialog.showModal();

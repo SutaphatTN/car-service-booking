@@ -54,6 +54,8 @@
                 </label>
             </div>
 
+            @include('partials.user-brand-fields')
+
             <div class="grid cols-2" style="margin-top:14px">
                 <label class="field">รหัสผ่าน
                     <input type="password" name="password" autocomplete="new-password"

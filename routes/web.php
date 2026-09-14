@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BrandSwitchController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\CallListController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -27,15 +29,34 @@ Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 */
 
 Route::middleware('auth')->group(function () {
-    Route::get('/', [AppointmentController::class, 'index'])->name('appointments.index');
-    Route::get('calendar', [CalendarController::class, 'index'])->name('calendar.index');
-    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    /*
+    | สลับยี่ห้อรถที่กำลังดูอยู่ — ยี่ห้อที่เลือกได้มาจากยี่ห้อประจำตัว + ตาราง brand_user
+    */
+    Route::post('brand/switch', [BrandSwitchController::class, 'store'])->name('brand.switch');
+    Route::post('brand/reset', [BrandSwitchController::class, 'destroy'])->name('brand.reset');
 
-    Route::post('appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+    /*
+    | หน้าที่ทำงานกับข้อมูลนัดหมาย — ข้อมูลถูกกรองตามยี่ห้อที่ใช้งานอยู่โดยอัตโนมัติ
+    */
+    Route::middleware('brand')->group(function () {
+        Route::get('/', [AppointmentController::class, 'index'])->name('appointments.index');
+        Route::get('calendar', [CalendarController::class, 'index'])->name('calendar.index');
+        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
 
-    Route::delete('appointments/{appointment}', [AppointmentController::class, 'destroy'])
-        ->middleware('role:sa')
-        ->name('appointments.destroy');
+        /*
+        | รายการต้องโทรหาลูกค้า — คิวเช็คระยะที่ใกล้ถึงกำหนดแต่ยังไม่ได้ยืนยัน
+        */
+        Route::get('calls', [CallListController::class, 'index'])->name('calls.index');
+        Route::patch('calls/{appointment}/confirm', [CallListController::class, 'confirm'])->name('calls.confirm');
+        Route::patch('appointments/{appointment}/complete', [AppointmentController::class, 'complete'])
+            ->name('appointments.complete');
+
+        Route::post('appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+
+        Route::delete('appointments/{appointment}', [AppointmentController::class, 'destroy'])
+            ->middleware('role:sa')
+            ->name('appointments.destroy');
+    });
 
     /*
     | จัดการผู้ใช้ — admin เท่านั้น

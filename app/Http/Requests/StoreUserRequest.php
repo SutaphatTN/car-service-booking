@@ -24,6 +24,10 @@ class StoreUserRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
             'role' => ['required', Rule::enum(Role::class)],
             'password' => ['required', 'string', 'min:6', 'max:100', 'confirmed'],
+            // ยี่ห้อประจำตัว + ยี่ห้ออื่นที่อนุญาตให้สลับไปดูได้
+            'brand_id' => ['required', 'integer', 'exists:brands,id'],
+            'extra_brands' => ['array'],
+            'extra_brands.*' => ['integer', 'exists:brands,id'],
         ];
     }
 
@@ -43,7 +47,25 @@ class StoreUserRequest extends FormRequest
             'password.required' => 'กรุณากรอกรหัสผ่าน',
             'password.min' => 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร',
             'password.confirmed' => 'ยืนยันรหัสผ่านไม่ตรงกัน',
+            'brand_id.required' => 'กรุณาเลือกยี่ห้อประจำตัว',
+            'brand_id.exists' => 'ไม่พบยี่ห้อที่เลือก',
+            'extra_brands.*.exists' => 'ไม่พบยี่ห้อที่เลือก',
         ];
+    }
+
+    /**
+     * ยี่ห้อที่ให้สลับไปดูได้ ไม่ต้องเก็บยี่ห้อประจำตัวซ้ำลงตาราง brand_user
+     *
+     * @return list<int>
+     */
+    public function extraBrandIds(): array
+    {
+        return collect($this->validated('extra_brands') ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn (int $id) => $id === (int) $this->validated('brand_id'))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     protected function prepareForValidation(): void

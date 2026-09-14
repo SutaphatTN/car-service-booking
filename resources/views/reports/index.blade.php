@@ -83,6 +83,8 @@
                     <th style="width:190px">วันที่และเวลานัด</th>
                     <th>ชื่อ - นามสกุล</th>
                     <th style="width:140px">เบอร์โทร</th>
+                    <th style="width:170px">เลขตัวถัง VIN</th>
+                    <th style="width:130px">ส่งมอบจริง</th>
                     <th class="right" style="width:120px">เลขไมล์ (กม.)</th>
                     <th style="width:140px">ผู้บันทึก</th>
                 </tr>
@@ -95,13 +97,28 @@
                             <div class="sub">{{ thai_date($appointment->appointment_at) }}</div>
                         </td>
                         <td><b>{{ $appointment->fullName() }}</b></td>
-                        <td>{{ phone_format($appointment->phone) }}</td>
+                        <td>
+                            @include('partials.phone-cell', [
+                                'phone' => $appointment->phone,
+                                'phone2' => $appointment->phone2,
+                            ])
+                        </td>
+                        <td>
+                            @if ($appointment->vin)
+                                <code class="vin">{{ $appointment->vin }}</code>
+                            @else
+                                <span class="sub">-</span>
+                            @endif
+                        </td>
+                        <td class="sub">
+                            {{ $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : '-' }}
+                        </td>
                         <td class="right">{{ baht($appointment->mileage) }}</td>
                         <td class="sub">{{ $appointment->creator?->name ?? '-' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="empty">ไม่มีนัดหมายในช่วงวันที่ที่เลือก</td>
+                        <td colspan="7" class="empty">ไม่มีนัดหมายในช่วงวันที่ที่เลือก</td>
                     </tr>
                 @endforelse
                 </tbody>

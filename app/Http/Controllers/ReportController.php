@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class ReportController extends Controller
@@ -42,7 +43,7 @@ class ReportController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Appointment>  $appointments
+     * @param  Collection<int, Appointment>  $appointments
      * @return array<string, mixed>
      */
     private function summarise($appointments, Carbon $from, Carbon $to): array
