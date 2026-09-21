@@ -4,7 +4,11 @@
 
 @php
     $today = now()->toDateString();
-    $weekdays = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+    // [ชื่อเต็ม, ชื่อย่อ] — จอแคบสลับไปใช้ชื่อย่อเพื่อไม่ให้ล้นช่อง
+    $weekdays = [
+        ['อาทิตย์', 'อา.'], ['จันทร์', 'จ.'], ['อังคาร', 'อ.'], ['พุธ', 'พ.'],
+        ['พฤหัสบดี', 'พฤ.'], ['ศุกร์', 'ศ.'], ['เสาร์', 'ส.'],
+    ];
     $dayLabels = collect($weeks)->flatten()->mapWithKeys(fn ($day) => [$day->toDateString() => thai_date($day)]);
     $monthTotal = collect($weeks)->flatten()
         ->filter(fn ($day) => $day->isSameMonth($month))
@@ -36,8 +40,10 @@
             </div>
 
             <div class="cal-grid">
-                @foreach ($weekdays as $index => $weekday)
-                    <div @class(['cal-weekday', 'weekend' => $index === 0 || $index === 6])>{{ $weekday }}</div>
+                @foreach ($weekdays as $index => [$weekdayFull, $weekdayShort])
+                    <div @class(['cal-weekday', 'weekend' => $index === 0 || $index === 6])>
+                        <span class="wd-full">{{ $weekdayFull }}</span><span class="wd-short">{{ $weekdayShort }}</span>
+                    </div>
                 @endforeach
 
                 @foreach ($weeks as $week)
@@ -46,7 +52,7 @@
                             $key = $day->toDateString();
                             $items = $byDate[$key] ?? collect();
                         @endphp
-                        <button type="button" data-date="{{ $key }}"
+                        <button type="button" data-date="{{ $key }}" data-count="{{ $items->count() }}"
                                 @class([
                                     'cal-day',
                                     'outside' => ! $day->isSameMonth($month),
