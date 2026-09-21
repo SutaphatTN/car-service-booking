@@ -104,7 +104,7 @@
             @endif
 
             <div class="actions" style="margin-top:16px">
-                <button type="submit" class="primary">บันทึกการแก้ไข</button>
+                <button type="submit" class="primary" data-busy="กำลังบันทึก…">บันทึกการแก้ไข</button>
                 <a href="{{ route('users.index') }}"><button type="button" class="ghost">ยกเลิก</button></a>
             </div>
         </form>

@@ -72,7 +72,8 @@ class ServiceQueueImporter
             }
 
             foreach ($rows as $row) {
-                if ($row->confirmed_at === null && $row->completed_at === null) {
+                // ติดธง "ติดต่อไม่ได้" ไว้ = เจ้าหน้าที่ลงมือกับคิวนี้แล้ว ลบทิ้งเงียบ ๆ ไม่ได้
+                if ($row->confirmed_at === null && $row->completed_at === null && $row->unreachable_at === null) {
                     $row->delete();
                     $stats['deleted']++;
 

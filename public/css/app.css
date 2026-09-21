@@ -201,6 +201,12 @@ button.ghost {
 button.ghost:hover { border-color: #cfd8ea; background: #fbfcfe; }
 button.ghost.danger { color: var(--danger); }
 button.ghost.danger:hover { border-color: #f0b3ad; background: var(--danger-soft); }
+/* ปุ่มที่ถูกล็อกระหว่างส่งฟอร์ม — ต้องเห็นชัดว่ากดซ้ำไม่ได้แล้ว และ hover ต้องไม่เปลี่ยนสี */
+button:disabled { cursor: not-allowed; opacity: .62; }
+button.primary:disabled:hover { background: var(--brand); }
+button.ghost:disabled:hover { border-color: var(--line); background: #fff; }
+button.ghost.danger:disabled:hover { border-color: var(--line); background: #fff; }
+
 .actions { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
 .actions a { text-decoration: none; }
 
@@ -215,6 +221,61 @@ button.ghost.danger:hover { border-color: #f0b3ad; background: var(--danger-soft
 .alert.ok { background: var(--ok-soft); border-color: #bfe5d1; color: var(--ok); }
 .alert.info { background: var(--brand-soft); border-color: #cfdcff; color: var(--brand-ink); font-size: 13px; }
 .flash { position: sticky; top: 12px; z-index: 20; box-shadow: var(--shadow-sm); }
+
+/* =========================================================
+   แถบบอกสถานะกำลังโหลดหน้าใหม่
+   วิ่งเข้าใกล้ 100% แล้วค้างไว้ ไม่วิ่งจนสุด เพราะไม่รู้ว่าหน้าใหม่จะมาถึงเมื่อไหร่
+   ========================================================= */
+.page-progress {
+  position: fixed; inset-block-start: 0; inset-inline: 0; z-index: 100;
+  height: 3px; overflow: hidden; pointer-events: none;
+}
+.page-progress::before {
+  content: ''; display: block; height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--brand), #60a5fa);
+  box-shadow: 0 0 8px rgba(37, 99, 235, .55);
+  transform-origin: 0 50%;
+  animation: page-progress-run 12s cubic-bezier(.1, .65, .2, 1) forwards;
+}
+@keyframes page-progress-run {
+  0%   { transform: scaleX(.03); }
+  30%  { transform: scaleX(.5); }
+  70%  { transform: scaleX(.82); }
+  100% { transform: scaleX(.97); }
+}
+/* ผู้ใช้ที่ตั้งค่าลดการเคลื่อนไหว — โชว์เป็นแถบนิ่งพอให้รู้ว่ากำลังทำงาน */
+@media (prefers-reduced-motion: reduce) {
+  .page-progress::before { animation: none; transform: scaleX(1); opacity: .45; }
+}
+
+/* ---- กล่องกลางจอ ---- */
+.page-loader {
+  /* ล้างกรอบและกล่องขาวที่เบราว์เซอร์ใส่ให้ dialog มา เหลือแต่การ์ดข้างใน */
+  border: 0; padding: 0; background: transparent;
+  max-width: none; max-height: none; overflow: visible;
+  margin: auto;   /* จัดกลางจอทั้งแนวตั้งและแนวนอน */
+}
+.page-loader::backdrop { background: rgba(12, 20, 38, .45); backdrop-filter: blur(2px); }
+
+.page-loader-box {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 26px 36px; border-radius: var(--r-lg);
+  background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  font-size: 14.5px; font-weight: 600;
+}
+
+.spinner {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 4px solid var(--line); border-top-color: var(--brand);
+  animation: spinner-turn .75s linear infinite;
+}
+@keyframes spinner-turn { to { transform: rotate(360deg); } }
+
+/* หมุนช้าลงมากแทนการหยุดนิ่ง ไม่งั้นจะดูเหมือนค้าง */
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.6s; }
+}
 .err { color: var(--danger); font-size: 12.5px; margin-top: 5px; display: block; }
 input.is-invalid, select.is-invalid { border-color: #e8a49c; }
 input.is-invalid:focus, select.is-invalid:focus { box-shadow: 0 0 0 3px rgba(180, 35, 24, .12); }
@@ -374,13 +435,17 @@ dialog.modal::backdrop { background: rgba(12, 20, 38, .48); backdrop-filter: blu
 .modal-close:hover { color: var(--ink); background: var(--line-soft); }
 .modal-body { padding: 22px; }
 .modal-foot {
-  display: flex; justify-content: flex-end; gap: 11px;
+  display: flex; justify-content: flex-end; gap: 11px; flex-wrap: wrap;
   padding: 16px 22px; border-top: 1px solid var(--line); background: #fafbfd;
 }
 
 /* =========================================================
    หน้าแจ้งข้อผิดพลาด
    ========================================================= */
+/* ปุ่มที่ต้องอยู่ซ้ายสุดของแถบปุ่มท้าย modal (เช่น "ล้างสถานะนี้") */
+.modal-foot-start { margin-inline-end: auto; }
+.modal-foot-start[hidden] { display: none; }
+
 .error-page { max-width: 540px; padding-top: 72px; text-align: center; }
 .error-page .card { padding: 36px 28px; }
 .error-page h2 { margin: 0 0 6px; font-size: 20px; }
@@ -500,13 +565,63 @@ tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 }
 
 /* สถานะคิวเช็คระยะ */
-.badge.status-waiting { background: #fdf0dc; color: var(--warn); }
-.badge.status-booked  { background: var(--brand-soft); color: var(--brand-ink); }
-.badge.status-done    { background: var(--ok-soft); color: var(--ok); }
+/* ยังไม่ได้ลงมือ = สีหลัก · โทรไม่ติด = เหลืองเตือน · นัดเรียบร้อย = เขียว · เลยกำหนดยังไม่ปิดงาน = แดง */
+.badge.status-waiting     { background: var(--brand-soft); color: var(--brand-ink); }
+.badge.status-unreachable { background: var(--warn-soft); color: var(--warn); }
+.badge.status-booked      { background: var(--ok-soft); color: var(--ok); }
+.badge.status-overdue     { background: var(--danger-soft); color: var(--danger); }
+/* งานที่ปิดไปแล้วเป็นของจบแล้ว ใช้สีกลาง ๆ ให้เขียวเหลือความหมายเดียวคือ "ยืนยันนัดหมาย" */
+.badge.status-done        { background: var(--line-soft); color: var(--muted); }
+/* บรรทัดบอกว่าคิวนี้ถูกเลื่อนวันโทรมา — สีเดียวกับคำเตือนอื่นในตาราง */
+.recall-note { color: var(--warn); }
 .model-name { font-size: 13.5px; }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
 .row-actions form { display: contents; }
 
+/* =========================================================
+   แถบกรองสถานะ (หน้ารายการนัดหมาย)
+   ========================================================= */
+.status-bar {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  padding: 11px 16px; background: #fafbfd; border-bottom: 1px solid var(--line);
+}
+.status-bar .chip-link { display: inline-flex; align-items: center; gap: 6px; }
+/* ตัวเลขจำนวนในชิป — จาง ๆ กว่าชื่อสถานะ ไม่ให้แย่งสายตา */
+.chip-count { font-weight: 700; font-size: 12px; color: var(--muted); }
+.chip-link:hover .chip-count { color: var(--brand); }
+.chip-link.active .chip-count { color: rgba(255, 255, 255, .8); }
+
+/* จอใหญ่ใช้ชิป เห็นทุกสถานะพร้อมจำนวนในตาเดียว — dropdown โผล่เฉพาะจอแคบ (ดูท้ายไฟล์) */
+.status-jump { display: none; }
+
+/* =========================================================
+   แถบเลือกเดือน + หัวกลุ่มในตาราง (หน้าต้องโทรหา)
+   ========================================================= */
+.month-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 11px 16px; background: #fafbfd; border-bottom: 1px solid var(--line);
+}
+.month-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+
+/* ช่องกระโดดข้ามเดือน — select ทั่วไปกว้าง 100% ตรงนี้ต้องพอดีข้อความ */
+.month-jump { display: flex; align-items: center; gap: 6px; }
+.month-jump select {
+  width: auto; margin-top: 0; padding: 7px 10px;
+  font-size: 14.5px; font-weight: 700; color: var(--ink); cursor: pointer;
+}
+.month-jump select:hover { border-color: #cfd8ea; }
+/* ปุ่มสลับมุมมองไปชิดขวาสุด แยกออกจากกลุ่มปุ่มเลื่อนเดือน */
+.month-bar .month-switch { margin-inline-start: auto; }
+
+/* หัวกลุ่มคั่นระหว่าง "คิวค้างเก่า" กับ "คิวของเดือนที่เลือก" */
+tr.group-row td {
+  padding: 8px 16px; background: var(--line-soft);
+  font-size: 12px; font-weight: 700; letter-spacing: .3px; color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+tr.group-row:hover td { background: var(--line-soft); }
+tr.group-row td.group-overdue { background: var(--warn-soft); color: var(--warn); }
+tr.group-row:hover td.group-overdue { background: var(--warn-soft); }
 /* =========================================================
    จอแท็บเล็ต/มือถือ — กันเบราว์เซอร์ซูมเอง
    ========================================================= */
@@ -558,6 +673,26 @@ tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
     font-size: 10.5px; font-weight: 700;
     display: grid; place-items: center;
   }
+
+  /* ---- แถบเลือกเดือน: ชื่อเดือนยืดเต็มที่เหลือ ปุ่มสลับมุมมองลงบรรทัดใหม่ ---- */
+  /* ---- แถบกรองสถานะ: ชิป 7 อันกว้างเกินจอมือถือ สลับไปใช้ dropdown แทน ---- */
+  .status-bar { display: none; }
+  .status-jump {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: #fafbfd; border-bottom: 1px solid var(--line);
+  }
+  .status-jump-label { flex: none; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .status-jump select {
+    flex: 1 1 auto; min-width: 0; /* เป็น flex item ต้องยอมหดตามช่องที่เหลือ ไม่งั้นดันป้ายตก */
+    margin-top: 0; padding: 8px 10px; font-size: 16px; font-weight: 600;
+  }
+
+  .month-bar { padding: 10px 14px; gap: 6px; }
+  .month-title { flex: 1 1 auto; text-align: center; font-size: 14.5px; }
+  .month-jump { flex: 1 1 auto; }
+  .month-jump select { width: 100%; font-size: 16px; text-align: center; }
+  .month-bar .month-switch { flex: 1 1 100%; margin-inline-start: 0; text-align: center; }
+  tr.group-row td { padding-inline: 14px; }
 
   /* ---- ขยายเป้ากดให้พอดีนิ้ว ---- */
   .cal-nav { width: 38px; height: 38px; }

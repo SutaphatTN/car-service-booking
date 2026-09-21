@@ -9,6 +9,7 @@ use App\Support\Schedule;
 use App\Support\ServiceQueueImporter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AppointmentController extends Controller
@@ -16,22 +17,40 @@ class AppointmentController extends Controller
     /** จำนวนรายการต่อหนึ่งหน้า */
     private const PER_PAGE = 10;
 
+    /**
+     * ตัวเลือกบนแถบกรองสถานะ เรียงตามลำดับที่แสดงบนหน้าจอ
+     *
+     * 'open' เป็นค่าตั้งต้น — งานที่ปิดแล้วไม่ถูกลบทิ้ง แค่ซ่อนไว้ ไม่งั้นจะกองอยู่
+     * บนสุดของหน้าแรก (ตารางเรียงจากวันเก่าไปใหม่) จนดันงานที่ยังต้องทำตกไปหน้าหลัง
+     */
+    private const STATUSES = ['open', 'overdue', 'waiting', 'unreachable', 'booked', 'done', 'all'];
+
     /** ตารางนัดหมาย เรียงตามวันและเวลา แบ่งเป็นหน้า ๆ */
     public function index(Request $request): View
     {
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(self::STATUSES)],
+        ], [
+            'status.in' => 'สถานะที่เลือกไม่ถูกต้อง',
         ]);
 
         $search = $filters['q'] ?? null;
+        $status = $filters['status'] ?? 'open';
 
         return view('appointments.index', [
             'search' => $search,
+            'status' => $status,
             'appointments' => Appointment::with(['title', 'creator'])
+                ->withStatus($status)
                 ->search($search)
                 ->ordered()
                 ->paginate(self::PER_PAGE)
                 ->withQueryString(),
+            // จำนวนบนแถบกรองต้องนับภายใต้คำค้นเดียวกัน ไม่งั้นกดแล้วเจอตัวเลขไม่ตรง
+            'statusCounts' => collect(self::STATUSES)->mapWithKeys(fn (string $key) => [
+                $key => Appointment::withStatus($key)->search($search)->count(),
+            ]),
             'titles' => Title::active()->get(),
             'timeSlots' => Schedule::timeSlots(),
         ]);

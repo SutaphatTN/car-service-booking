@@ -2,6 +2,15 @@
 
 @section('title', 'รายการนัดหมาย')
 
+@php
+    // ค่าตั้งต้นคือ 'open' จึงไม่ต้องติดไปใน URL ลิงก์จะได้สั้นและเป็นค่ามาตรฐาน
+    $keepStatus = $status === 'open' ? [] : ['status' => $status];
+    $statusUrl = fn (string $key) => route('appointments.index', array_filter([
+        'q' => $search,
+        'status' => $key === 'open' ? null : $key,
+    ]));
+@endphp
+
 @section('content')
     <div class="page-head">
         <div>
@@ -11,12 +20,15 @@
                 @if ($search)
                     พบ {{ baht($appointments->total()) }} รายการจากคำค้น "{{ $search }}"
                 @else
-                    ทั้งหมด {{ baht($appointments->total()) }} รายการ
+                    {{ App\Models\Appointment::statusLabel($status) }} {{ baht($appointments->total()) }} รายการ
                 @endif
             </p>
         </div>
         <div class="page-tools">
-            @include('partials.search-box', ['action' => route('appointments.index')])
+            @include('partials.search-box', [
+                'action' => route('appointments.index'),
+                'hidden' => $keepStatus,
+            ])
             <button type="button" class="primary" onclick="openAppointmentDialog()">+ เพิ่มข้อมูล</button>
         </div>
     </div>
@@ -26,6 +38,35 @@
     @endif
 
     <div class="card" style="padding:0;overflow:hidden">
+        {{-- งานที่ปิดแล้วถูกซ่อนไว้เป็นค่าตั้งต้น กดดูย้อนหลังได้จากแถบนี้ --}}
+        <div class="status-bar">
+            @foreach ($statusCounts as $key => $count)
+                <a @class(['chip-link', 'active' => $key === $status]) href="{{ $statusUrl($key) }}">
+                    {{ App\Models\Appointment::statusLabel($key) }}
+                    <span class="chip-count">{{ baht($count) }}</span>
+                </a>
+            @endforeach
+        </div>
+
+        {{-- จอแคบไม่พอวางชิป 7 อัน สลับเป็น dropdown แทน (สลับด้วย CSS ทั้งคู่อยู่ในหน้าเดียว) --}}
+        <form method="GET" action="{{ route('appointments.index') }}" class="status-jump">
+            @if ($search)
+                <input type="hidden" name="q" value="{{ $search }}">
+            @endif
+
+            <label class="status-jump-label" for="statusJump">สถานะ</label>
+
+            <select name="status" id="statusJump" data-lock-on-submit>
+                @foreach ($statusCounts as $key => $count)
+                    <option value="{{ $key }}" @selected($key === $status)>
+                        {{ App\Models\Appointment::statusLabel($key) }} · {{ baht($count) }}
+                    </option>
+                @endforeach
+            </select>
+
+            <noscript><button type="submit" class="ghost">กรอง</button></noscript>
+        </form>
+
         <div class="table-scroll">
             <table>
                 <thead>
@@ -35,7 +76,7 @@
                     <th style="width:140px">เบอร์โทร</th>
                     <th style="width:185px">รถ</th>
                     <th class="right" style="width:100px">เลขไมล์</th>
-                    <th style="width:100px">สถานะ</th>
+                    <th style="width:120px">สถานะ</th>
                     <th style="width:120px">ผู้บันทึก</th>
                     <th class="right" style="width:150px">จัดการ</th>
                 </tr>
@@ -77,6 +118,12 @@
                         </td>
                         <td>
                             <span class="badge status-{{ $appointment->statusKey() }}">{{ $appointment->status() }}</span>
+                            @if ($appointment->isUnreachable() && $appointment->recall_at)
+                                <div class="sub recall-note"
+                                     title="โทรไม่ติด {{ $appointment->unreachable_count }} ครั้ง รอโทรซ้ำอยู่">
+                                    โทรซ้ำ {{ thai_date($appointment->recall_at, short: true) }}
+                                </div>
+                            @endif
                             @if ($appointment->service_no)
                                 <div class="sub">ครั้งที่ {{ $appointment->service_no }}</div>
                             @endif
@@ -97,7 +144,7 @@
                                           onsubmit="return confirm('ลบนัดหมายของ ' + this.dataset.name + ' ?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="ghost danger">ลบ</button>
+                                        <button type="submit" class="ghost danger" data-busy="กำลังลบ…">ลบ</button>
                                     </form>
                                 @endif
                             </div>
@@ -108,6 +155,11 @@
                         <td colspan="8" class="empty">
                             @if ($search)
                                 ไม่พบนัดหมายที่ตรงกับ "{{ $search }}"
+                                @if ($status !== 'all')
+                                    ในสถานะ "{{ App\Models\Appointment::statusLabel($status) }}"
+                                @endif
+                            @elseif ($status !== 'open')
+                                ไม่มีนัดหมายในสถานะ "{{ App\Models\Appointment::statusLabel($status) }}"
                             @else
                                 ยังไม่มีนัดหมาย กด "เพิ่มข้อมูล" เพื่อเริ่มบันทึก
                             @endif
@@ -147,7 +199,7 @@
 
             <div class="modal-foot">
                 <button type="button" class="ghost" id="completeCancel">ยกเลิก</button>
-                <button type="submit" class="primary">ปิดงาน</button>
+                <button type="submit" class="primary" data-busy="กำลังปิดงาน…">ปิดงาน</button>
             </div>
         </form>
     </dialog>
@@ -166,6 +218,14 @@
                 ]]);
         @endphp
         const completable = @json($completable, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
+
+        // เลือกสถานะบนมือถือแล้วกรองเลย ไม่ต้องกดปุ่มซ้ำ
+        const statusJump = document.getElementById('statusJump');
+        // requestSubmit() ยิง event submit ด้วย ตัวดักกดซ้ำกับแถบโหลดจึงทำงาน (submit() ไม่ยิง)
+        if (statusJump) statusJump.addEventListener('change', () => {
+            if (statusJump.form.requestSubmit) statusJump.form.requestSubmit();
+            else statusJump.form.submit();
+        });
 
         const completeDialog = document.getElementById('completeDialog');
         const completeForm = document.getElementById('completeForm');

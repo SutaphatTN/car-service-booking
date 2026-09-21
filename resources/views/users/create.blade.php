@@ -83,7 +83,7 @@
             </div>
 
             <div class="actions" style="margin-top:16px">
-                <button type="submit" class="primary">ลงทะเบียน</button>
+                <button type="submit" class="primary" data-busy="กำลังบันทึก…">ลงทะเบียน</button>
                 <a href="{{ route('users.index') }}"><button type="button" class="ghost">ยกเลิก</button></a>
             </div>
         </form>

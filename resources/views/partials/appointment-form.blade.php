@@ -115,7 +115,7 @@
 
         <div class="modal-foot">
             <button type="button" class="ghost" id="cancelBtn">ยกเลิก</button>
-            <button type="submit" class="primary">บันทึก</button>
+            <button type="submit" class="primary" data-busy="กำลังบันทึก…">บันทึก</button>
         </div>
     </form>
 </dialog>

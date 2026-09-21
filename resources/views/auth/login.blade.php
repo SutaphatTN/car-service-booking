@@ -33,7 +33,7 @@
             </label>
 
             <div class="actions" style="margin-top:16px">
-                <button type="submit" class="primary">เข้าสู่ระบบ</button>
+                <button type="submit" class="primary" data-busy="กำลังเข้าสู่ระบบ…">เข้าสู่ระบบ</button>
             </div>
         </form>
     </div>

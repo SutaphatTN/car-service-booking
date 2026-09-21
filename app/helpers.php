@@ -77,3 +77,25 @@ if (! function_exists('current_brand_id')) {
         return app(CurrentBrand::class)->id();
     }
 }
+
+if (! function_exists('asset_version')) {
+    /**
+     * ลิงก์ไฟล์ static พร้อมเลขเวอร์ชันจากเวลาที่ไฟล์ถูกแก้ครั้งล่าสุด
+     *
+     * โปรเจคนี้ไม่มีขั้นตอน build (ไม่ได้ใช้ Vite/Mix) ไฟล์จึงมี URL คงที่ตลอด
+     * แก้ CSS แล้วอัปขึ้นเซิร์ฟเวอร์ เบราว์เซอร์ของผู้ใช้จะยังหยิบไฟล์เก่าที่แคชไว้มาใช้
+     * จนกว่าจะกด Ctrl+F5 ซึ่งพนักงานทั่วไปไม่รู้ หน้าเว็บก็จะเพี้ยนแบบหาสาเหตุไม่เจอ
+     *
+     * ต่อเวลาแก้ไขท้าย URL ทำให้ URL เปลี่ยนเองทุกครั้งที่ไฟล์เปลี่ยน ได้ผลเหมือน
+     * cache busting ของ Vite โดยไม่ต้องมี Node
+     */
+    function asset_version(string $path): string
+    {
+        $file = public_path($path);
+
+        // ไฟล์หายไปก็ยังต้องคืนลิงก์ตามปกติ ปล่อยให้เบราว์เซอร์ฟ้อง 404 เอง ดีกว่าหน้าเว็บพัง
+        $stamp = is_file($file) ? filemtime($file) : false;
+
+        return $stamp === false ? asset($path) : asset($path).'?v='.$stamp;
+    }
+}

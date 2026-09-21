@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToBrand;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ class Appointment extends Model
         'brand_id', 'title_id', 'first_name', 'last_name', 'phone', 'phone2', 'vin', 'delivered_at',
         'mileage', 'appointment_at', 'created_by',
         'salecar_id', 'service_no', 'model_id', 'model_name', 'confirmed_at', 'completed_at', 'source_missing_at',
+        'unreachable_at', 'recall_at', 'unreachable_count',
     ];
 
     protected function casts(): array
@@ -26,6 +28,9 @@ class Appointment extends Model
             'confirmed_at' => 'datetime',
             'completed_at' => 'datetime',
             'source_missing_at' => 'datetime',
+            'unreachable_at' => 'datetime',
+            'recall_at' => 'date',
+            'unreachable_count' => 'integer',
             'mileage' => 'integer',
             'service_no' => 'integer',
         ];
@@ -43,13 +48,69 @@ class Appointment extends Model
         return $this->confirmed_at === null && $this->completed_at === null;
     }
 
+    /** โทรไม่ติดและยังรอโทรซ้ำอยู่ */
+    public function isUnreachable(): bool
+    {
+        return $this->unreachable_at !== null && $this->needsCall();
+    }
+
+    /**
+     * วันที่ต้องโทรจริง — เลื่อนนัดโทรไว้ก็ยึดวันที่เลื่อน ไม่ใช่วันครบกำหนดตามตารางเช็คระยะ
+     * (ตรงกับคอลัมน์คำนวณ call_due_date ที่ใช้กรอง/เรียงในฐานข้อมูล)
+     */
+    public function callDueDate(): CarbonInterface
+    {
+        return $this->recall_at ?? $this->appointment_at->copy()->startOfDay();
+    }
+
+    /** เลยวันที่ต้องโทรมาแล้ว */
+    public function isCallOverdue(): bool
+    {
+        return $this->callDueDate()->lt(now()->startOfDay());
+    }
+
     /** สถานะสำหรับแสดงบนหน้าจอ */
     public function status(): string
     {
-        return match ($this->statusKey()) {
+        return self::statusLabel($this->statusKey());
+    }
+
+    /**
+     * ชื่อสถานะของคีย์ที่กำหนด — ใช้ทั้งบนป้ายในตารางและบนแถบกรองสถานะ
+     * 'open' กับ 'all' ไม่ใช่สถานะของแถวไหน เป็นตัวเลือกบนแถบกรองอย่างเดียว
+     */
+    public static function statusLabel(string $key): string
+    {
+        return match ($key) {
             'done' => 'เช็คแล้ว',
-            'booked' => 'นัดแล้ว',
-            default => 'รอโทร',
+            'overdue' => 'ครบกำหนดเข้า',
+            'booked' => 'ยืนยันนัดหมาย',
+            'unreachable' => 'ติดต่อไม่ได้',
+            'waiting' => 'รอโทร',
+            'open' => 'ที่ยังไม่ปิดงาน',
+            default => 'ทั้งหมด',
+        };
+    }
+
+    /**
+     * กรองตามสถานะที่เห็นบนหน้าจอ — ต้องให้ผลตรงกับ statusKey() เสมอ
+     * (มีเทสต์เทียบผลของสโคปนี้กับ statusKey() ทีละสถานะไว้กันตรรกะสองฝั่งเพี้ยนจากกัน)
+     */
+    public function scopeWithStatus(Builder $query, string $status): Builder
+    {
+        $endOfToday = now()->endOfDay();
+
+        // คิวที่ยังไม่ถึงวันนัดและยังไม่ปิดงาน — ฐานร่วมของ booked / unreachable / waiting
+        $upcoming = fn (Builder $q) => $q->whereNull('completed_at')->where('appointment_at', '>', $endOfToday);
+
+        return match ($status) {
+            'done' => $query->whereNotNull('completed_at'),
+            'overdue' => $query->whereNull('completed_at')->where('appointment_at', '<=', $endOfToday),
+            'booked' => $upcoming($query)->whereNotNull('confirmed_at'),
+            'unreachable' => $upcoming($query)->whereNull('confirmed_at')->whereNotNull('unreachable_at'),
+            'waiting' => $upcoming($query)->whereNull('confirmed_at')->whereNull('unreachable_at'),
+            'open' => $query->whereNull('completed_at'),
+            default => $query,
         };
     }
 
@@ -58,7 +119,13 @@ class Appointment extends Model
     {
         return match (true) {
             $this->completed_at !== null => 'done',
+            // ถึงวันนัดแล้วแต่ยังไม่ปิดงาน — เร่งด่วนสุดในบรรดาคิวที่ยังไม่จบ
+            // จึงมาก่อนสถานะอื่น ไม่ว่าจะยืนยันนัดไปแล้วหรือยังไม่ได้โทรเลยก็ตาม
+            // นับทั้งวัน ไม่ใช่เลยเวลานัด — นัดบ่ายสามก็ขึ้นแดงตั้งแต่เช้าให้เห็นว่าเป็นงานของวันนี้
+            $this->appointment_at->lte(now()->endOfDay()) => 'overdue',
             $this->confirmed_at !== null => 'booked',
+            // โทรไม่ติดแล้วรอโทรซ้ำ — ยังไม่ได้นัด แต่ไม่ใช่ "รอโทร" เฉย ๆ ต้องแยกให้เห็น
+            $this->unreachable_at !== null => 'unreachable',
             default => 'waiting',
         };
     }
@@ -97,11 +164,34 @@ class Appointment extends Model
     }
 
     /** คิวที่ยังต้องโทร และถึงกำหนดภายใน $days วันข้างหน้า */
+    /** คิวที่ยังไม่ได้ยืนยันวันเวลาและยังไม่ได้เช็ค — ฐานของทุกมุมมองในหน้า "ต้องโทรหา" */
+    public function scopeUnhandled(Builder $query): Builder
+    {
+        return $query->whereNull('confirmed_at')->whereNull('completed_at');
+    }
+
+    /** มุมมองปกติ — ถึงกำหนดภายใน N วันข้างหน้า (รวมที่เลยกำหนดมาแล้วทั้งหมด) */
     public function scopeNeedingCall(Builder $query, int $days): Builder
     {
-        return $query->whereNull('confirmed_at')
-            ->whereNull('completed_at')
-            ->where('appointment_at', '<=', now()->addDays($days)->endOfDay());
+        return $query->unhandled()
+            ->where('call_due_date', '<=', now()->addDays($days)->toDateString());
+    }
+
+    /**
+     * มุมมองรายเดือน — คิวของเดือนที่เลือก บวกกับคิวที่เลยกำหนดไปแล้วทุกใบ
+     *
+     * คิวค้างเก่าต้องติดมาด้วยเสมอ ไม่งั้นพอเลื่อนไปดูเดือนหน้าแล้วลูกค้าที่ยัง
+     * ไม่ได้โทรจากเดือนก่อนจะหายไปจากสายตา (ใช้ overdueFirst() ดันขึ้นบนสุด)
+     */
+    public function scopeNeedingCallInMonth(Builder $query, CarbonInterface $month): Builder
+    {
+        $start = $month->copy()->startOfMonth()->toDateString();
+        $end = $month->copy()->endOfMonth()->toDateString();
+
+        return $query->unhandled()->where(
+            fn (Builder $q) => $q->whereBetween('call_due_date', [$start, $end])
+                ->orWhere('call_due_date', '<', now()->toDateString())
+        );
     }
 
     public function title(): BelongsTo
@@ -118,6 +208,20 @@ class Appointment extends Model
     public function scopeOrdered(Builder $query): Builder
     {
         return $query->orderBy('appointment_at')->orderBy('id');
+    }
+
+    /** เรียงตามวันที่ต้องโทรจริง — ใช้กับหน้า "ต้องโทรหา" ที่คิวเลื่อนวันโทรได้ */
+    public function scopeCallOrdered(Builder $query): Builder
+    {
+        return $query->orderBy('call_due_date')->orderBy('appointment_at')->orderBy('id');
+    }
+
+    /** เรียงเหมือน callOrdered() แต่ดันคิวที่เลยวันต้องโทรแล้วขึ้นไปไว้บนสุด */
+    public function scopeOverdueFirst(Builder $query): Builder
+    {
+        return $query
+            ->orderByRaw('(call_due_date < ?) desc', [now()->toDateString()])
+            ->callOrdered();
     }
 
     /** ชื่อเต็มพร้อมคำนำหน้า เช่น "นายสมชาย ใจดี" */

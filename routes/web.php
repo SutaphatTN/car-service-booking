@@ -48,6 +48,8 @@ Route::middleware('auth')->group(function () {
         */
         Route::get('calls', [CallListController::class, 'index'])->name('calls.index');
         Route::patch('calls/{appointment}/confirm', [CallListController::class, 'confirm'])->name('calls.confirm');
+        Route::patch('calls/{appointment}/unreachable', [CallListController::class, 'unreachable'])
+            ->name('calls.unreachable');
         Route::patch('appointments/{appointment}/complete', [AppointmentController::class, 'complete'])
             ->name('appointments.complete');
 
