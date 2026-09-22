@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{{ asset_version('css/app.css') }}">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231d4ed8'/><g transform='translate(3.6 4.2) scale(0.775)' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M8 15l2.6-5.2A3 3 0 0 1 13.3 8h5.4a3 3 0 0 1 2.7 1.8L24 15'/><path d='M5 15h22a2 2 0 0 1 2 2v4h-3.2M8.2 21H3v-4a2 2 0 0 1 2-2'/><circle cx='10.5' cy='21' r='2.8'/><circle cx='21.5' cy='21' r='2.8'/><path d='M13.3 21h5.4'/></g></svg>">
 </head>
-<body>
+<body class="@yield('body-class')">
 {{-- แถบบอกว่ากำลังโหลดหน้าใหม่ — สปินเนอร์บนแท็บเบราว์เซอร์เล็กเกินกว่าผู้ใช้จะสังเกต --}}
 <div id="pageProgress" class="page-progress" role="presentation" hidden></div>
 
