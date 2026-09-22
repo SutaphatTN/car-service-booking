@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Plesk วาง nginx เป็น reverse proxy อยู่หน้า PHP
+        // ถ้าไม่เชื่อ header จาก proxy Laravel จะมองว่าเป็น http แล้วสร้างลิงก์ผิดตอนรัน https
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'role' => EnsureRole::class,
             'brand' => EnsureBrand::class,
