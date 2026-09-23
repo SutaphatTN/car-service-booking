@@ -17,7 +17,28 @@ class Appointment extends Model
         'brand_id', 'title_id', 'first_name', 'last_name', 'phone', 'phone2', 'vin', 'delivered_at',
         'mileage', 'appointment_at', 'created_by',
         'salecar_id', 'service_no', 'model_id', 'model_name', 'confirmed_at', 'completed_at', 'source_missing_at',
-        'unreachable_at', 'recall_at', 'unreachable_count',
+        'unreachable_at', 'recall_reason', 'recall_at', 'unreachable_count',
+        'declined_at', 'declined_reason', 'declined_note',
+    ];
+
+    /**
+     * เหตุผลที่ลูกค้าไม่เข้าเช็คระยะครั้งนี้ → ชื่อที่แสดงบนหน้าจอ
+     *
+     * 'skip' อย่างเดียวที่ยังไปต่อ — ครั้งนี้ไม่เข้าแต่ยังเป็นลูกค้าอยู่ ระบบจึงสร้าง
+     * คิวครั้งถัดไปให้เหมือนตอนปิดงาน ที่เหลือแปลว่ารถคันนี้จบตารางเช็คระยะกับเราแล้ว
+     */
+    public const DECLINE_REASONS = [
+        'skip' => 'ครั้งนี้ไม่เข้า ข้ามไปครั้งหน้า',
+        'other_shop' => 'ใช้บริการศูนย์อื่น',
+        'sold' => 'ขายรถ/เปลี่ยนเจ้าของแล้ว',
+        'no_service' => 'ไม่ประสงค์รับบริการ ไม่ต้องโทรอีก',
+        'other' => 'อื่น ๆ',
+    ];
+
+    /** เหตุผลที่เลื่อนวันโทร → ชื่อที่แสดงบนหน้าจอ */
+    public const RECALL_REASONS = [
+        'unreachable' => 'ติดต่อไม่ได้',
+        'not_ready' => 'ลูกค้ายังไม่สะดวก',
     ];
 
     protected function casts(): array
@@ -31,6 +52,7 @@ class Appointment extends Model
             'unreachable_at' => 'datetime',
             'recall_at' => 'date',
             'unreachable_count' => 'integer',
+            'declined_at' => 'datetime',
             'mileage' => 'integer',
             'service_no' => 'integer',
         ];
@@ -45,13 +67,39 @@ class Appointment extends Model
     /** ยังต้องโทรหาลูกค้าเพื่อยืนยันวันเวลา */
     public function needsCall(): bool
     {
-        return $this->confirmed_at === null && $this->completed_at === null;
+        return $this->confirmed_at === null
+            && $this->completed_at === null
+            && $this->declined_at === null;
     }
 
-    /** โทรไม่ติดและยังรอโทรซ้ำอยู่ */
-    public function isUnreachable(): bool
+    /** เลื่อนวันโทรไว้และยังรอโทรซ้ำอยู่ — ไม่ว่าจะเพราะโทรไม่ติดหรือลูกค้าขอเลื่อนเอง */
+    public function isPostponed(): bool
     {
         return $this->unreachable_at !== null && $this->needsCall();
+    }
+
+    /** โทรไม่ติดและยังรอโทรซ้ำอยู่ (ข้อมูลเก่าที่ยังไม่มีเหตุผลกำกับ นับเป็นโทรไม่ติดตามความหมายเดิมของปุ่ม) */
+    public function isUnreachable(): bool
+    {
+        return $this->isPostponed() && $this->recall_reason !== 'not_ready';
+    }
+
+    /** โทรติดแล้ว แต่ลูกค้ายังไม่พร้อมนัด ขอให้โทรใหม่ทีหลัง */
+    public function isNotReady(): bool
+    {
+        return $this->isPostponed() && $this->recall_reason === 'not_ready';
+    }
+
+    /** ลูกค้าบอกว่าไม่เข้าเช็คระยะครั้งนี้ — ปิดคิวโดยไม่ได้เช็ค */
+    public function isDeclined(): bool
+    {
+        return $this->declined_at !== null && $this->completed_at === null;
+    }
+
+    /** ชื่อเหตุผลที่ปฏิเสธสำหรับแสดงบนหน้าจอ */
+    public function declineReasonLabel(): ?string
+    {
+        return self::DECLINE_REASONS[$this->declined_reason] ?? null;
     }
 
     /**
@@ -86,6 +134,8 @@ class Appointment extends Model
             'overdue' => 'ครบกำหนดเข้า',
             'booked' => 'ยืนยันนัดหมาย',
             'unreachable' => 'ติดต่อไม่ได้',
+            'not_ready' => 'ยังไม่สะดวก',
+            'declined' => 'ไม่เข้าเช็ค',
             'waiting' => 'รอโทร',
             'open' => 'ที่ยังไม่ปิดงาน',
             default => 'ทั้งหมด',
@@ -100,16 +150,27 @@ class Appointment extends Model
     {
         $endOfToday = now()->endOfDay();
 
-        // คิวที่ยังไม่ถึงวันนัดและยังไม่ปิดงาน — ฐานร่วมของ booked / unreachable / waiting
-        $upcoming = fn (Builder $q) => $q->whereNull('completed_at')->where('appointment_at', '>', $endOfToday);
+        // คิวที่ยังไม่ปิด — ปิดได้สองทาง เช็คเสร็จ (completed_at) หรือลูกค้าไม่เข้า (declined_at)
+        $open = fn (Builder $q) => $q->whereNull('completed_at')->whereNull('declined_at');
+
+        // คิวที่ยังไม่ถึงวันนัดและยังไม่ปิด — ฐานร่วมของ booked / unreachable / not_ready / waiting
+        $upcoming = fn (Builder $q) => $open($q)->where('appointment_at', '>', $endOfToday);
+
+        // เลื่อนวันโทรไว้แล้วแต่ยังไม่ได้นัด — ต่างกันแค่เหตุผล
+        $postponed = fn (Builder $q) => $upcoming($q)->whereNull('confirmed_at')->whereNotNull('unreachable_at');
 
         return match ($status) {
             'done' => $query->whereNotNull('completed_at'),
-            'overdue' => $query->whereNull('completed_at')->where('appointment_at', '<=', $endOfToday),
+            'declined' => $query->whereNull('completed_at')->whereNotNull('declined_at'),
+            'overdue' => $open($query)->where('appointment_at', '<=', $endOfToday),
             'booked' => $upcoming($query)->whereNotNull('confirmed_at'),
-            'unreachable' => $upcoming($query)->whereNull('confirmed_at')->whereNotNull('unreachable_at'),
+            // ข้อมูลเก่าไม่มี recall_reason กำกับ นับเป็นโทรไม่ติด ให้ตรงกับ statusKey()
+            'unreachable' => $postponed($query)->where(
+                fn (Builder $q) => $q->whereNull('recall_reason')->orWhere('recall_reason', '!=', 'not_ready')
+            ),
+            'not_ready' => $postponed($query)->where('recall_reason', 'not_ready'),
             'waiting' => $upcoming($query)->whereNull('confirmed_at')->whereNull('unreachable_at'),
-            'open' => $query->whereNull('completed_at'),
+            'open' => $open($query),
             default => $query,
         };
     }
@@ -119,13 +180,17 @@ class Appointment extends Model
     {
         return match (true) {
             $this->completed_at !== null => 'done',
+            // ลูกค้าไม่เข้าเช็ค = ปิดคิวไปแล้วเหมือนกัน ต้องมาก่อน overdue ไม่งั้นพอเลยวัน
+            // ครบกำหนดจะกลายเป็นงานค้างสีแดงทั้งที่ตกลงกับลูกค้าเรียบร้อยแล้ว
+            $this->declined_at !== null => 'declined',
             // ถึงวันนัดแล้วแต่ยังไม่ปิดงาน — เร่งด่วนสุดในบรรดาคิวที่ยังไม่จบ
             // จึงมาก่อนสถานะอื่น ไม่ว่าจะยืนยันนัดไปแล้วหรือยังไม่ได้โทรเลยก็ตาม
             // นับทั้งวัน ไม่ใช่เลยเวลานัด — นัดบ่ายสามก็ขึ้นแดงตั้งแต่เช้าให้เห็นว่าเป็นงานของวันนี้
             $this->appointment_at->lte(now()->endOfDay()) => 'overdue',
             $this->confirmed_at !== null => 'booked',
-            // โทรไม่ติดแล้วรอโทรซ้ำ — ยังไม่ได้นัด แต่ไม่ใช่ "รอโทร" เฉย ๆ ต้องแยกให้เห็น
-            $this->unreachable_at !== null => 'unreachable',
+            // เลื่อนวันโทรไว้แล้วรอโทรซ้ำ — ยังไม่ได้นัด แต่ไม่ใช่ "รอโทร" เฉย ๆ ต้องแยกให้เห็น
+            // และต้องแยกสองเหตุผลออกจากกัน โทรไม่ติดกับลูกค้าขอเลื่อนเองคนละเรื่องกัน
+            $this->unreachable_at !== null => $this->recall_reason === 'not_ready' ? 'not_ready' : 'unreachable',
             default => 'waiting',
         };
     }
@@ -167,7 +232,7 @@ class Appointment extends Model
     /** คิวที่ยังไม่ได้ยืนยันวันเวลาและยังไม่ได้เช็ค — ฐานของทุกมุมมองในหน้า "ต้องโทรหา" */
     public function scopeUnhandled(Builder $query): Builder
     {
-        return $query->whereNull('confirmed_at')->whereNull('completed_at');
+        return $query->whereNull('confirmed_at')->whereNull('completed_at')->whereNull('declined_at');
     }
 
     /** มุมมองปกติ — ถึงกำหนดภายใน N วันข้างหน้า (รวมที่เลยกำหนดมาแล้วทั้งหมด) */

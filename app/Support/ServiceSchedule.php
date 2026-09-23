@@ -69,6 +69,51 @@ class ServiceSchedule
         ];
     }
 
+    /**
+     * การเช็คครั้งถัดไป นับจากวันที่ปิดรอบก่อนหน้าจริง ๆ ไม่ใช่นับจากวันส่งมอบ
+     *
+     * ครั้งแรกนับจากวันส่งมอบเพราะยังไม่มีวันอื่นให้ยึด แต่ครั้งต่อ ๆ ไปถ้ายึดวันส่งมอบเหมือนเดิม
+     * รถที่เข้าช้ากว่ากำหนดไปมากจะโดนเรียกเข้าอีกรอบเร็วเกินไป เช่นครบกำหนด 11 ก.ย. แต่เข้าจริง
+     * 25 ต.ค. ถ้านับจากวันส่งมอบ ครั้งถัดไปจะห่างจากที่เพิ่งเช็คไปแค่ 4 เดือนครึ่ง ไม่ใช่ 6 เดือน
+     *
+     * @param  Carbon  $closedAt  วันที่ปิดรอบก่อนหน้า (เช็คเสร็จจริง หรือวันที่ลูกค้าบอกว่าไม่เข้า)
+     * @return array{service_no:int, months:int, due_date:Carbon, mileage:?int}|null
+     *                                                                               null = ครบตารางแล้ว ไม่มีครั้งถัดไป · months = ระยะห่างจากรอบก่อน ไม่ใช่เดือนนับจากวันส่งมอบ
+     */
+    public static function nextAfterService(string $brand, ?int $modelId, Carbon $closedAt, int $serviceNo): ?array
+    {
+        $interval = self::intervalAfter($brand, $modelId, $serviceNo);
+
+        if ($interval === null) {
+            return null;
+        }
+
+        return [
+            'service_no' => $serviceNo + 1,
+            'months' => $interval,
+            'due_date' => $closedAt->copy()->startOfDay()->addMonthsNoOverflow($interval),
+            'mileage' => self::mileageFor($modelId, $serviceNo + 1),
+        ];
+    }
+
+    /**
+     * ระยะห่างเป็นเดือนระหว่างการเช็คครั้งที่ $serviceNo กับครั้งถัดไป — null = ไม่มีครั้งถัดไป
+     *
+     * อ่านจากตารางเสมอ ไม่ได้ตั้งเป็นค่าคงที่ เพราะบางรุ่นครั้งแรกห่างจากครั้งที่สองไม่เท่ากับ
+     * ครั้งอื่น ๆ (Porta EV เช็คแรกที่ 3 เดือน แล้วครั้งถัดไปที่ 9 เดือน)
+     */
+    public static function intervalAfter(string $brand, ?int $modelId, int $serviceNo): ?int
+    {
+        $current = self::monthsFor($brand, $modelId, $serviceNo);
+        $next = self::monthsFor($brand, $modelId, $serviceNo + 1);
+
+        if ($current === null || $next === null) {
+            return null;
+        }
+
+        return $next - $current;
+    }
+
     /** จำนวนเดือนนับจากวันส่งมอบของการเช็คครั้งที่ $serviceNo — null = จบตารางแล้ว */
     public static function monthsFor(string $brand, ?int $modelId, int $serviceNo): ?int
     {

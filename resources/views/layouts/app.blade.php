@@ -53,7 +53,14 @@
         @auth
             <div class="account" id="accountMenu">
                 <button type="button" class="account-btn" id="accountBtn" aria-expanded="false" aria-haspopup="true">
-                    <span class="avatar">{{ mb_substr(auth()->user()->name, 0, 1) }}</span>
+                    {{-- ไอคอนรูปคน ไม่ใช้อักษรตัวแรกของชื่อ — ชื่อไทยขึ้นต้นด้วยสระหรือ ก-ฮ ตัวไหนก็ได้ ดูไม่ออกว่าเป็นของใคร --}}
+                    <span class="avatar" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="8.2" r="3.7"/>
+                            <path d="M4.8 20c.6-3.8 3.6-6 7.2-6s6.6 2.2 7.2 6"/>
+                        </svg>
+                    </span>
                     <span class="account-text">
                         <b>{{ auth()->user()->name }}</b>
                         <small>{{ auth()->user()->role->label() }}</small>

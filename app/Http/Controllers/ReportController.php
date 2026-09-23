@@ -30,6 +30,8 @@ class ReportController extends Controller
         }
 
         $appointments = Appointment::with(['title', 'creator'])
+            // ลูกค้าไม่เข้าแล้ว = ไม่มีงานวันนั้นจริง นับรวมจะทำให้ยอดในรายงานบวม
+            ->whereNull('declined_at')
             ->whereBetween('appointment_at', [$from, $to->copy()->endOfDay()])
             ->ordered()
             ->get();

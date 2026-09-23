@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Support\Schedule;
+use App\Support\ServiceQueueImporter;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -105,16 +107,19 @@ class CallListController extends Controller
     }
 
     /**
-     * โทรแล้วไม่ติด — บันทึกว่าจะโทรซ้ำวันไหน
+     * เลื่อนวันโทร — โทรไม่ติด หรือโทรติดแล้วแต่ลูกค้ายังไม่สะดวกนัด
      *
      * ไม่ขยับ appointment_at เพราะนั่นคือวันครบกำหนดตามตารางเช็คระยะ (ระบบดึงข้อมูล
      * ใช้คำนวณต่อ) วันโทรซ้ำเก็บแยกไว้ที่ recall_at แล้วหน้า "ต้องโทรหา" จะยึดวันนั้นแทน
+     *
+     * ตัวนับ unreachable_count ขยับเฉพาะตอนโทรไม่ติดจริง — ลูกค้าที่รับสายทุกครั้ง
+     * แต่ขอเลื่อนไปก่อน ไม่ควรถูกบันทึกว่า "ติดต่อไม่ได้ 4 ครั้ง"
      */
     public function unreachable(Request $request, Appointment $appointment): RedirectResponse
     {
         if (! $appointment->needsCall()) {
             return back()->withErrors([
-                'recall_date' => 'นัดของ '.$appointment->fullName().' ยืนยันหรือปิดงานไปแล้ว',
+                'recall_date' => 'นัดของ '.$appointment->fullName().' ยืนยัน ปิดงาน หรือปิดคิวไปแล้ว',
             ]);
         }
 
@@ -122,20 +127,26 @@ class CallListController extends Controller
         if ($request->boolean('clear')) {
             $appointment->update([
                 'unreachable_at' => null,
+                'recall_reason' => null,
                 'recall_at' => null,
                 'unreachable_count' => 0,
             ]);
 
-            return back()->with('status', 'ล้างสถานะติดต่อไม่ได้ของ '.$appointment->fullName().' แล้ว');
+            return back()->with('status', 'ล้างสถานะเลื่อนโทรของ '.$appointment->fullName().' แล้ว');
         }
 
         $data = $request->validate([
             'recall_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'recall_reason' => ['required', Rule::in(array_keys(Appointment::RECALL_REASONS))],
         ], [
             'recall_date.required' => 'กรุณาเลือกวันที่จะโทรซ้ำ',
             'recall_date.date_format' => 'รูปแบบวันที่ไม่ถูกต้อง',
             'recall_date.after_or_equal' => 'วันที่จะโทรซ้ำต้องเป็นวันนี้หรือหลังจากนี้',
+            'recall_reason.required' => 'กรุณาเลือกเหตุผลที่เลื่อน',
+            'recall_reason.in' => 'เหตุผลที่เลือกไม่ถูกต้อง',
         ]);
+
+        $unreachable = $data['recall_reason'] === 'unreachable';
 
         // เลื่อนไปวันเดิมซ้ำไม่นับเป็นการโทรไม่ติดรอบใหม่ — กันกดปุ่มรัว ๆ แล้วตัวนับพุ่งเป็นสิบ
         // (หน้าเว็บล็อกปุ่มให้อยู่แล้ว ตรงนี้กันอีกชั้นเผื่อยิงซ้ำจากที่อื่นหรือเน็ตสะดุดแล้วส่งซ้ำ)
@@ -143,12 +154,81 @@ class CallListController extends Controller
 
         $appointment->update([
             'unreachable_at' => now(),
+            'recall_reason' => $data['recall_reason'],
             'recall_at' => $data['recall_date'],
-            'unreachable_count' => $appointment->unreachable_count + ($sameDay ? 0 : 1),
+            'unreachable_count' => $appointment->unreachable_count + ($unreachable && ! $sameDay ? 1 : 0),
         ]);
 
         return back()->with('status',
-            'บันทึกว่าติดต่อ '.$appointment->fullName().' ไม่ได้ — จะโทรซ้ำ '
-            .thai_date($data['recall_date'], short: true));
+            ($unreachable
+                ? 'บันทึกว่าติดต่อ '.$appointment->fullName().' ไม่ได้'
+                : 'บันทึกว่า '.$appointment->fullName().' ยังไม่สะดวก')
+            .' — จะโทรซ้ำ '.thai_date($data['recall_date'], short: true));
+    }
+
+    /**
+     * ลูกค้าไม่เข้าเช็คระยะครั้งนี้ — ปิดคิวโดยไม่ได้เช็ค
+     *
+     * ลบแถวทิ้งแทนไม่ได้ คิวที่ดึงมาจากฝ่ายขายจะถูกสร้างขึ้นใหม่จาก salecar_id เดิม
+     * ในรอบ import ถัดไป แล้วลูกค้าที่บอกว่าไม่เอาแล้วก็จะเด้งกลับเข้ารายการโทรอีก
+     */
+    public function decline(Request $request, Appointment $appointment, ServiceQueueImporter $importer): RedirectResponse
+    {
+        // กดผิด หรือลูกค้าเปลี่ยนใจ — เอากลับเข้ารายการต้องโทรหาตามเดิม
+        if ($request->boolean('clear')) {
+            if (! $appointment->isDeclined()) {
+                return back()->withErrors(['declined_reason' => 'คิวของ '.$appointment->fullName().' ไม่ได้ถูกปิดไว้']);
+            }
+
+            $appointment->update([
+                'declined_at' => null,
+                'declined_reason' => null,
+                'declined_note' => null,
+            ]);
+
+            return back()->with('status', 'เอาคิวของ '.$appointment->fullName().' กลับเข้ารายการต้องโทรหาแล้ว');
+        }
+
+        if (! $appointment->needsCall()) {
+            return back()->withErrors([
+                'declined_reason' => 'นัดของ '.$appointment->fullName().' ยืนยัน ปิดงาน หรือปิดคิวไปแล้ว',
+            ]);
+        }
+
+        $data = $request->validate([
+            'declined_reason' => ['required', Rule::in(array_keys(Appointment::DECLINE_REASONS))],
+            'declined_note' => ['nullable', 'string', 'max:200'],
+        ], [
+            'declined_reason.required' => 'กรุณาเลือกเหตุผล',
+            'declined_reason.in' => 'เหตุผลที่เลือกไม่ถูกต้อง',
+            'declined_note.max' => 'รายละเอียดยาวเกิน 200 ตัวอักษร',
+        ]);
+
+        $appointment->update([
+            'declined_at' => now(),
+            'declined_reason' => $data['declined_reason'],
+            'declined_note' => $data['declined_note'] ?? null,
+            // ธงเลื่อนโทรหมดความหมายแล้ว ล้างทิ้งไม่ให้ค้างเป็นข้อมูลเก่า
+            'unreachable_at' => null,
+            'recall_reason' => null,
+            'recall_at' => null,
+        ]);
+
+        $message = 'ปิดคิวของ '.$appointment->fullName().' แล้ว — '
+            .Appointment::DECLINE_REASONS[$data['declined_reason']];
+
+        // ครั้งนี้ไม่เข้าแต่ยังเป็นลูกค้าอยู่ — เดินตารางเช็คระยะต่อเหมือนตอนปิดงาน
+        if ($data['declined_reason'] === 'skip') {
+            $next = $importer->createNextFor($appointment);
+
+            if ($next) {
+                $message .= ' · คิวครั้งที่ '.$next->service_no.' ครบกำหนด '
+                    .thai_date($next->appointment_at, short: true).' ระบบสร้างให้แล้ว';
+            } elseif ($appointment->isFromSales()) {
+                $message .= ' · ครบตารางเช็คระยะของรุ่นนี้แล้ว ไม่มีคิวถัดไป';
+            }
+        }
+
+        return back()->with('status', $message);
     }
 }

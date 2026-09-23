@@ -103,8 +103,9 @@ main.wrap { padding-top: 26px; padding-bottom: 72px; }
 .account-btn .avatar {
   width: 30px; height: 30px; border-radius: 9px; flex: none;
   background: linear-gradient(140deg, #3b82f6, #1d4ed8);
-  display: grid; place-items: center; font-size: 14px; font-weight: 700;
+  display: grid; place-items: center;
 }
+.account-btn .avatar svg { width: 17px; height: 17px; }
 .account-text { display: grid; line-height: 1.25; text-align: start; }
 .account-text b { font-size: 13.5px; font-weight: 600; }
 .account-text small { font-size: 11px; color: rgba(255, 255, 255, .55); }
@@ -172,7 +173,7 @@ input:hover, select:hover { border-color: #cfd8ea; }
 input:focus, select:focus, textarea:focus {
   outline: 0; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
 }
-input[type="checkbox"] { width: auto; margin: 0; }
+input[type="checkbox"], input[type="radio"] { width: auto; margin: 0; }
 .hint-inline { display: block; margin-top: 5px; font-size: 12px; font-weight: 400; color: var(--muted); }
 input[readonly] { background: #f6f7fb; color: var(--ink-soft); cursor: default; }
 input[readonly]:hover, input[readonly]:focus { border-color: var(--line); box-shadow: none; }
@@ -183,6 +184,17 @@ input[readonly]:hover, input[readonly]:focus { border-color: var(--line); box-sh
 optgroup { font-size: 12.5px; color: var(--muted); }
 optgroup option { color: var(--ink); font-size: 15px; }
 label.check { display: flex; align-items: center; gap: 9px; margin-top: 16px; font-size: 13.5px; color: var(--ink-soft); }
+
+/* กลุ่มตัวเลือกเหตุผลในป็อปอัป — ต้องกวาดตาเห็นครบทุกข้อก่อนตัดสินใจ จึงเรียงลงมาแทนที่จะเป็น dropdown */
+div.field { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.reason-list { display: grid; gap: 2px; margin-top: 6px; }
+.reason-option {
+  display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+  border-radius: var(--r-md); font-size: 14px; font-weight: 400; color: var(--ink); cursor: pointer;
+}
+.reason-option:hover { background: var(--line-soft); }
+.reason-option input[type="radio"] { width: 16px; height: 16px; accent-color: var(--brand); cursor: pointer; }
+.reason-option:has(input:checked) { background: var(--brand-soft); color: var(--brand-ink); font-weight: 600; }
 
 button.primary {
   background: var(--brand); color: #fff; border: 0; border-radius: var(--r-md);
@@ -569,13 +581,61 @@ tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 .badge.status-unreachable { background: var(--warn-soft); color: var(--warn); }
 .badge.status-booked      { background: var(--ok-soft); color: var(--ok); }
 .badge.status-overdue     { background: var(--danger-soft); color: var(--danger); }
+/* ลูกค้ารับสายแต่ยังไม่พร้อมนัด — ยังต้องตามต่อเหมือนกัน แต่ไม่ใช่ปัญหาติดต่อไม่ได้ จึงใช้สีจางกว่า */
+.badge.status-not_ready   { background: var(--warn-soft); color: var(--muted); }
 /* งานที่ปิดไปแล้วเป็นของจบแล้ว ใช้สีกลาง ๆ ให้เขียวเหลือความหมายเดียวคือ "ยืนยันนัดหมาย" */
 .badge.status-done        { background: var(--line-soft); color: var(--muted); }
+/* ปิดคิวเพราะลูกค้าไม่เข้า — จบแล้วเหมือน "เช็คแล้ว" แต่ไม่ได้ทำงาน จึงใช้สีกลางแบบมีเส้นกรอบคั่น */
+.badge.status-declined    { background: var(--line-soft); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
 /* บรรทัดบอกว่าคิวนี้ถูกเลื่อนวันโทรมา — สีเดียวกับคำเตือนอื่นในตาราง */
 .recall-note { color: var(--warn); }
 .model-name { font-size: 13.5px; }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
 .row-actions form { display: contents; }
+
+/* ---- ปุ่มไอคอนในตาราง ----
+   แถวหนึ่งมีสามปุ่ม ถ้าเป็นปุ่มคำเต็มจะกินที่จนคอลัมน์ข้อมูลเหลือนิดเดียว
+   ชื่อปุ่มจึงย้ายไปอยู่ในคำอธิบายตอนเอาเมาส์ชี้แทน
+
+   ทุกปุ่มเป็นสีทึบไอคอนขาว แยกความหมายด้วยสี ไม่ใช่ด้วยความเข้มของปุ่ม
+   ทั้งสามปุ่มเป็นงานที่เกิดพอ ๆ กัน จะได้กวาดตาหาสีที่ต้องการได้ในแถวเดียว
+   (ห้ามใส่คลาส primary/ghost ซ้ำ กฎของปุ่มปกติมี specificity สูงกว่า จะดึงขนาดกลับไปเป็นปุ่มใหญ่) */
+.icon-btn {
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: var(--r-md);
+  background: var(--act); color: #fff; cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background .15s, box-shadow .15s, transform .05s;
+}
+.icon-btn:hover { background: var(--act-dark); box-shadow: 0 2px 4px rgba(16, 24, 40, .14); }
+.icon-btn:active { transform: translateY(1px); box-shadow: var(--shadow-sm); }
+.icon-btn:disabled:hover { background: var(--act); }
+
+/* นัดได้ = งานที่อยากให้จบแบบนี้ ใช้สีหลัก · เลื่อนโทร = ยังไม่จบ สีเหลืองเตือน · ไม่เข้าเช็ค = ปิดคิว สีแดง */
+.icon-btn.act-book     { --act: #2563eb; --act-dark: #1d4ed8; }
+.icon-btn.act-postpone { --act: #f79009; --act-dark: #dc6803; }
+.icon-btn.act-decline  { --act: #f04438; --act-dark: #d92d20; }
+
+/* หน้ารายการนัดหมาย — ปิดงาน = งานสำเร็จ สีเขียว · เอาคิวกลับ = ย้อนสถานะ สีหลัก · ลบ = สีแดงเหมือนกัน */
+.icon-btn.act-complete { --act: #12b76a; --act-dark: #039855; }
+.icon-btn.act-restore  { --act: #2563eb; --act-dark: #1d4ed8; }
+.icon-btn.act-delete   { --act: #f04438; --act-dark: #d92d20; }
+
+.icon-btn .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* คำอธิบายต้องโผล่เหนือปุ่มเสมอ — ตารางตัดส่วนที่ล้นกรอบทิ้ง ถ้าวางไว้ใต้ปุ่มแถวล่างสุดจะโดนตัดหาย */
+.icon-btn::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  padding: 5px 9px; border-radius: 7px; background: #1f2937; color: #fff;
+  font-size: 12px; font-weight: 500; letter-spacing: 0; white-space: nowrap;
+  opacity: 0; visibility: hidden; transition: opacity .12s; pointer-events: none; z-index: 5;
+}
+/* ปุ่มสุดท้ายชิดขอบขวาของตาราง จับขอบขวาของคำอธิบายให้ตรงกับปุ่ม ไม่งั้นล้นออกไปนอกกรอบ */
+.icon-btn:last-child::after { left: auto; right: 0; transform: none; }
+.icon-btn:hover::after, .icon-btn:focus-visible::after { opacity: 1; visibility: visible; }
 
 /* =========================================================
    แถบกรองสถานะ (หน้ารายการนัดหมาย)

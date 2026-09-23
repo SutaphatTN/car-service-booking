@@ -111,7 +111,7 @@
                     <th style="width:150px">เบอร์โทร</th>
                     <th style="width:160px">รถ</th>
                     <th style="width:90px">ครั้งที่</th>
-                    <th class="right" style="width:250px">จัดการ</th>
+                    <th class="right" style="width:150px">จัดการ</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -148,7 +148,7 @@
                                     อีก {{ $daysLeft }} วัน
                                 @endif
                             </div>
-                            @if ($call->isUnreachable())
+                            @if ($call->isPostponed())
                                 <div class="sub recall-note">
                                     เลื่อนจาก {{ thai_date($call->appointment_at, short: true) }}
                                 </div>
@@ -156,11 +156,16 @@
                         </td>
                         <td>
                             <b>{{ $call->fullName() }}</b>
+                            {{-- โทรไม่ติดกับลูกค้าขอเลื่อนเองคนละเรื่อง ต้องแยกป้ายให้เห็นตอนหยิบสายขึ้นมาโทร --}}
                             @if ($call->isUnreachable())
                                 <div class="sub">
                                     <span class="badge status-unreachable">
                                         ติดต่อไม่ได้ {{ $call->unreachable_count }} ครั้ง
                                     </span>
+                                </div>
+                            @elseif ($call->isNotReady())
+                                <div class="sub">
+                                    <span class="badge status-not_ready">ลูกค้าขอเลื่อนไว้</span>
                                 </div>
                             @endif
                             @if ($call->delivered_at)
@@ -176,11 +181,22 @@
                         </td>
                         <td>{{ $call->service_no ? 'ครั้งที่ '.$call->service_no : '-' }}</td>
                         <td class="right">
+                            {{-- เรียงตามสิ่งที่ควรเกิดบ่อยที่สุดก่อน — ปลายทางของสายคือได้นัด --}}
                             <div class="row-actions">
-                                <button type="button" class="ghost"
-                                        onclick="openUnreachable({{ $call->id }})">{{ $call->isUnreachable() ? 'เลื่อนอีก' : 'ติดต่อไม่ได้' }}</button>
-                                <button type="button" class="primary"
-                                        onclick="openConfirm({{ $call->id }})">ลงเวลานัด</button>
+                                <button type="button" class="icon-btn act-book" data-tip="ลงเวลานัด"
+                                        aria-label="ลงเวลานัด" onclick="openConfirm({{ $call->id }})">
+                                    <svg class="ic" aria-hidden="true"><use href="#ic-booking"></use></svg>
+                                </button>
+                                <button type="button" class="icon-btn act-postpone"
+                                        data-tip="{{ $call->isPostponed() ? 'เลื่อนวันโทรอีกครั้ง' : 'เลื่อนวันโทร' }}"
+                                        aria-label="{{ $call->isPostponed() ? 'เลื่อนวันโทรอีกครั้ง' : 'เลื่อนวันโทร' }}"
+                                        onclick="openUnreachable({{ $call->id }})">
+                                    <svg class="ic" aria-hidden="true"><use href="#ic-postpone"></use></svg>
+                                </button>
+                                <button type="button" class="icon-btn act-decline" data-tip="ลูกค้าไม่เข้าเช็ค"
+                                        aria-label="ลูกค้าไม่เข้าเช็ค" onclick="openDecline({{ $call->id }})">
+                                    <svg class="ic" aria-hidden="true"><use href="#ic-decline"></use></svg>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -203,6 +219,8 @@
 
         @include('partials.pagination', ['paginator' => $calls])
     </div>
+
+    @include('partials.action-icons')
 
     {{-- ฟอร์มลงเวลานัดหลังโทรคุยกับลูกค้า --}}
     <dialog id="confirmDialog" class="modal">
@@ -248,19 +266,32 @@
         </form>
     </dialog>
 
-    {{-- โทรแล้วไม่ติด — เลื่อนไปโทรซ้ำอีกวัน คิวจะไปโผล่ในรายการนี้ตามวันที่เลือก --}}
+    {{-- ยังนัดไม่ได้ — เลื่อนไปโทรซ้ำอีกวัน คิวจะไปโผล่ในรายการนี้ตามวันที่เลือก --}}
     <dialog id="unreachableDialog" class="modal">
         <form method="POST" id="unreachableForm">
             @csrf
             @method('PATCH')
 
             <div class="modal-head">
-                <h2>ติดต่อไม่ได้</h2>
+                <h2>เลื่อนวันโทร</h2>
                 <button type="button" class="modal-close" id="unreachableClose" aria-label="ปิด">&times;</button>
             </div>
 
             <div class="modal-body">
                 <p class="muted" id="unreachableWho"></p>
+
+                {{-- เหตุผลต่างกันคนละเรื่อง ตัวนับ "ติดต่อไม่ได้" จะขยับเฉพาะตอนโทรไม่ติดจริง --}}
+                <div class="field">เหตุผล
+                    <div class="reason-list">
+                        @foreach (App\Models\Appointment::RECALL_REASONS as $key => $label)
+                            <label class="reason-option">
+                                <input type="radio" name="recall_reason" value="{{ $key }}"
+                                       @checked($loop->first) required>
+                                <span>{{ $label }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
 
                 <label class="field">จะโทรซ้ำวันที่
                     <input type="date" name="recall_date" id="recallDate"
@@ -283,6 +314,50 @@
             </div>
         </form>
     </dialog>
+
+    {{--
+        ลูกค้าไม่เข้าเช็คระยะครั้งนี้ — ปิดคิวออกจากรายการโดยไม่ได้เช็ค
+        ลบแถวทิ้งแทนไม่ได้ รอบ import ถัดไปจะสร้างคิวเดิมขึ้นมาใหม่จากฝ่ายขาย
+    --}}
+    <dialog id="declineDialog" class="modal">
+        <form method="POST" id="declineForm">
+            @csrf
+            @method('PATCH')
+
+            <div class="modal-head">
+                <h2>ลูกค้าไม่เข้าเช็ค</h2>
+                <button type="button" class="modal-close" id="declineClose" aria-label="ปิด">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <p class="muted" id="declineWho"></p>
+
+                <div class="field">เหตุผล
+                    <div class="reason-list">
+                        @foreach (App\Models\Appointment::DECLINE_REASONS as $key => $label)
+                            <label class="reason-option">
+                                <input type="radio" name="declined_reason" value="{{ $key }}"
+                                       @checked($loop->first) required>
+                                <span>{{ $label }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <label class="field">รายละเอียดเพิ่มเติม (ไม่บังคับ)
+                    <input name="declined_note" id="declineNote" maxlength="200"
+                           placeholder="เช่น ลูกค้าย้ายไปต่างจังหวัด">
+                </label>
+
+                <div class="alert info" style="margin-top:14px" id="declineHint"></div>
+            </div>
+
+            <div class="modal-foot">
+                <button type="button" class="ghost" id="declineCancel">ยกเลิก</button>
+                <button type="submit" class="primary" data-busy="กำลังบันทึก…">ปิดคิวนี้</button>
+            </div>
+        </form>
+    </dialog>
 @endsection
 
 @push('scripts')
@@ -297,7 +372,9 @@
                 'url'  => route('calls.confirm', $c),
 
                 'unreachableUrl' => route('calls.unreachable', $c),
-                'unreachable' => $c->isUnreachable(),
+                'declineUrl' => route('calls.decline', $c),
+                'postponed' => $c->isPostponed(),
+                'reason' => $c->recall_reason ?? 'unreachable',
                 'tries' => $c->unreachable_count,
                 // วันเดิมที่เลื่อนไว้ถ้ายังไม่ถึง ไม่งั้นตั้งต้นอีก 3 วัน (วันที่ย้อนหลังบันทึกไม่ได้)
                 'recallDate' => $c->recall_at && $c->recall_at->gte($today)
@@ -339,7 +416,7 @@
             else monthJump.form.submit();
         });
 
-        // ---- ติดต่อไม่ได้ ----
+        // ---- เลื่อนวันโทร ----
         const unreachableDialog = document.getElementById('unreachableDialog');
         const unreachableForm = document.getElementById('unreachableForm');
         const recallDate = document.getElementById('recallDate');
@@ -352,17 +429,52 @@
             unreachableForm.action = call.unreachableUrl;
             recallDate.value = call.recallDate;
             document.getElementById('unreachableWho').textContent = call.name;
-            document.getElementById('unreachableNote').textContent = call.unreachable
+
+            // เลื่อนอีกรอบ — ตั้งต้นด้วยเหตุผลเดิม ส่วนใหญ่เป็นเรื่องเดียวกันต่อเนื่องกันมา
+            const reason = unreachableForm.querySelector('[name="recall_reason"][value="' + call.reason + '"]');
+            if (reason) reason.checked = true;
+
+            document.getElementById('unreachableNote').textContent = call.tries > 0
                 ? 'โทรไม่ติดมาแล้ว ' + call.tries + ' ครั้ง — เลือกวันใหม่เพื่อเลื่อนต่อ'
                 : 'คิวจะยังอยู่ในรายการต้องโทรหา แต่ขยับไปอยู่วันที่เลือก';
 
             // ล้างสถานะได้เฉพาะคิวที่ติดธงไว้แล้ว
-            unreachableClear.hidden = !call.unreachable;
+            unreachableClear.hidden = !call.postponed;
 
             unreachableDialog.showModal();
         };
 
         document.getElementById('unreachableClose').addEventListener('click', () => unreachableDialog.close());
         document.getElementById('unreachableCancel').addEventListener('click', () => unreachableDialog.close());
+
+        // ---- ลูกค้าไม่เข้าเช็ค ----
+        const declineDialog = document.getElementById('declineDialog');
+        const declineForm = document.getElementById('declineForm');
+        const declineHint = document.getElementById('declineHint');
+
+        // เหตุผลเดียวที่ระบบเดินตารางเช็คระยะต่อให้ ที่เหลือคือจบกันแค่ครั้งนี้
+        const showDeclineHint = () => {
+            const picked = declineForm.querySelector('[name="declined_reason"]:checked');
+            declineHint.textContent = picked && picked.value === 'skip'
+                ? 'คิวนี้จะถูกปิด แล้วระบบสร้างคิวเช็คระยะครั้งถัดไปให้อัตโนมัติ'
+                : 'คิวนี้จะถูกปิดและไม่มีคิวถัดไป — รถคันนี้จะไม่ขึ้นในรายการต้องโทรหาอีก';
+        };
+
+        declineForm.addEventListener('change', showDeclineHint);
+
+        window.openDecline = function (id) {
+            const call = calls[id];
+            if (!call) return;
+
+            declineForm.action = call.declineUrl;
+            declineForm.reset();
+            document.getElementById('declineWho').textContent = call.name;
+            showDeclineHint();
+
+            declineDialog.showModal();
+        };
+
+        document.getElementById('declineClose').addEventListener('click', () => declineDialog.close());
+        document.getElementById('declineCancel').addEventListener('click', () => declineDialog.close());
     </script>
 @endpush

@@ -29,6 +29,8 @@ class CalendarController extends Controller
         $gridEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
 
         $byDate = Appointment::with(['title', 'creator'])
+            // คิวที่ลูกค้าบอกว่าไม่เข้าแล้ว ไม่ใช่นัดอีกต่อไป ต้องไม่ไปกินที่บนปฏิทิน
+            ->whereNull('declined_at')
             ->whereBetween('appointment_at', [$gridStart->copy()->startOfDay(), $gridEnd->copy()->endOfDay()])
             ->ordered()
             ->get()

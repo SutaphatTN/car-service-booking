@@ -50,6 +50,9 @@ Route::middleware('auth')->group(function () {
         Route::patch('calls/{appointment}/confirm', [CallListController::class, 'confirm'])->name('calls.confirm');
         Route::patch('calls/{appointment}/unreachable', [CallListController::class, 'unreachable'])
             ->name('calls.unreachable');
+        // ลูกค้าไม่เข้าเช็คระยะครั้งนี้ — ปิดคิวโดยไม่ได้เช็ค (ส่ง clear=1 เพื่อเอากลับ)
+        Route::patch('calls/{appointment}/decline', [CallListController::class, 'decline'])
+            ->name('calls.decline');
         Route::patch('appointments/{appointment}/complete', [AppointmentController::class, 'complete'])
             ->name('appointments.complete');
 

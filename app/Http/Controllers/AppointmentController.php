@@ -23,7 +23,9 @@ class AppointmentController extends Controller
      * 'open' เป็นค่าตั้งต้น — งานที่ปิดแล้วไม่ถูกลบทิ้ง แค่ซ่อนไว้ ไม่งั้นจะกองอยู่
      * บนสุดของหน้าแรก (ตารางเรียงจากวันเก่าไปใหม่) จนดันงานที่ยังต้องทำตกไปหน้าหลัง
      */
-    private const STATUSES = ['open', 'overdue', 'waiting', 'unreachable', 'booked', 'done', 'all'];
+    private const STATUSES = [
+        'open', 'overdue', 'waiting', 'unreachable', 'not_ready', 'booked', 'declined', 'done', 'all',
+    ];
 
     /** ตารางนัดหมาย เรียงตามวันและเวลา แบ่งเป็นหน้า ๆ */
     public function index(Request $request): View
@@ -41,7 +43,8 @@ class AppointmentController extends Controller
         return view('appointments.index', [
             'search' => $search,
             'status' => $status,
-            'appointments' => Appointment::with(['title', 'creator'])
+            // brand ใช้ตอนคิดวันครบกำหนดของคิวครั้งถัดไปในป็อปอัปปิดงาน ดึงมาทีเดียวกันยิงทีละแถว
+            'appointments' => Appointment::with(['title', 'creator', 'brand'])
                 ->withStatus($status)
                 ->search($search)
                 ->ordered()

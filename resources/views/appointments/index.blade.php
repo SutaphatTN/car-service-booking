@@ -48,7 +48,7 @@
             @endforeach
         </div>
 
-        {{-- จอแคบไม่พอวางชิป 7 อัน สลับเป็น dropdown แทน (สลับด้วย CSS ทั้งคู่อยู่ในหน้าเดียว) --}}
+        {{-- จอแคบไม่พอวางชิปทั้งแถบ สลับเป็น dropdown แทน (สลับด้วย CSS ทั้งคู่อยู่ในหน้าเดียว) --}}
         <form method="GET" action="{{ route('appointments.index') }}" class="status-jump">
             @if ($search)
                 <input type="hidden" name="q" value="{{ $search }}">
@@ -78,7 +78,7 @@
                     <th class="right" style="width:100px">เลขไมล์</th>
                     <th style="width:120px">สถานะ</th>
                     <th style="width:120px">ผู้บันทึก</th>
-                    <th class="right" style="width:150px">จัดการ</th>
+                    <th class="right" style="width:120px">จัดการ</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -118,10 +118,18 @@
                         </td>
                         <td>
                             <span class="badge status-{{ $appointment->statusKey() }}">{{ $appointment->status() }}</span>
-                            @if ($appointment->isUnreachable() && $appointment->recall_at)
+                            @if ($appointment->isPostponed() && $appointment->recall_at)
                                 <div class="sub recall-note"
-                                     title="โทรไม่ติด {{ $appointment->unreachable_count }} ครั้ง รอโทรซ้ำอยู่">
+                                     title="{{ $appointment->isUnreachable()
+                                        ? 'ติดต่อไม่ได้ '.$appointment->unreachable_count.' ครั้ง รอโทรซ้ำอยู่'
+                                        : 'ลูกค้าขอเลื่อนไว้เอง รอโทรซ้ำอยู่' }}">
                                     โทรซ้ำ {{ thai_date($appointment->recall_at, short: true) }}
+                                </div>
+                            @endif
+                            {{-- ปิดคิวโดยไม่ได้เช็ค — ต้องเห็นเหตุผลย้อนหลังได้ว่าทำไมถึงไม่ได้ทำ --}}
+                            @if ($appointment->isDeclined())
+                                <div class="sub" title="{{ $appointment->declined_note }}">
+                                    {{ $appointment->declineReasonLabel() }}
                                 </div>
                             @endif
                             @if ($appointment->service_no)
@@ -133,9 +141,24 @@
                         </td>
                         <td class="right">
                             <div class="row-actions">
-                                @if ($appointment->completed_at === null)
-                                    <button type="button" class="ghost"
-                                            onclick="openComplete({{ $appointment->id }})">ปิดงาน</button>
+                                {{-- ลูกค้าเปลี่ยนใจ หรือกดผิด — เอาคิวกลับเข้ารายการต้องโทรหาตามเดิม --}}
+                                @if ($appointment->isDeclined())
+                                    <form method="POST" action="{{ route('calls.decline', $appointment) }}"
+                                          data-name="{{ $appointment->fullName() }}"
+                                          onsubmit="return confirm('เอาคิวของ ' + this.dataset.name + ' กลับเข้ารายการต้องโทรหา ?')">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="hidden" name="clear" value="1">
+                                        <button type="submit" class="icon-btn act-restore" data-tip="เอาคิวกลับ"
+                                                aria-label="เอาคิวกลับ">
+                                            <svg class="ic" aria-hidden="true"><use href="#ic-restore"></use></svg>
+                                        </button>
+                                    </form>
+                                @elseif ($appointment->completed_at === null)
+                                    <button type="button" class="icon-btn act-complete" data-tip="ปิดงานเช็คระยะ"
+                                            aria-label="ปิดงานเช็คระยะ" onclick="openComplete({{ $appointment->id }})">
+                                        <svg class="ic" aria-hidden="true"><use href="#ic-complete"></use></svg>
+                                    </button>
                                 @endif
 
                                 @if (auth()->user()->isSa())
@@ -144,7 +167,10 @@
                                           onsubmit="return confirm('ลบนัดหมายของ ' + this.dataset.name + ' ?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="ghost danger" data-busy="กำลังลบ…">ลบ</button>
+                                        <button type="submit" class="icon-btn act-delete" data-tip="ลบนัดหมาย"
+                                                aria-label="ลบนัดหมาย">
+                                            <svg class="ic" aria-hidden="true"><use href="#ic-trash"></use></svg>
+                                        </button>
                                     </form>
                                 @endif
                             </div>
@@ -172,6 +198,8 @@
 
         @include('partials.pagination', ['paginator' => $appointments])
     </div>
+
+    @include('partials.action-icons')
 
     @include('partials.appointment-form')
 
@@ -208,13 +236,28 @@
 @push('scripts')
     <script>
         @php
+            // ปิดงานวันนี้แล้วคิวครั้งหน้าจะครบกำหนดวันไหน — คิดแบบเดียวกับ ServiceQueueImporter::createNextFor()
+            $nextQueueNote = function ($a) {
+                if (! $a->isFromSales() || $a->delivered_at === null) {
+                    return 'นัดนี้คีย์เอง ไม่ได้อยู่ในตารางเช็คระยะ จึงไม่มีคิวถัดไป';
+                }
+
+                $next = App\Support\ServiceSchedule::nextAfterService(
+                    $a->brand?->name ?? '', $a->model_id, now(), (int) $a->service_no
+                );
+
+                return $next
+                    ? 'ปิดงานแล้วระบบจะสร้างคิวครั้งที่ '.$next['service_no'].' ให้อัตโนมัติ — ครบกำหนด '
+                        .thai_date($next['due_date'], short: true).' (อีก '.$next['months'].' เดือนนับจากวันนี้)'
+                    : 'ครบตารางเช็คระยะของรุ่นนี้แล้ว ปิดงานนี้แล้วไม่มีคิวถัดไป';
+            };
+
             $completable = $appointments->filter(fn ($a) => $a->completed_at === null)
                 ->mapWithKeys(fn ($a) => [$a->id => [
                     'name' => $a->fullName(),
                     'url' => route('appointments.complete', $a),
-                    'next' => $a->service_no
-                        ? 'ปิดงานแล้วระบบจะสร้างคิวเช็คระยะครั้งถัดไปให้อัตโนมัติ (นับจากวันส่งมอบ)'
-                        : 'นัดนี้คีย์เอง ไม่ได้อยู่ในตารางเช็คระยะ จึงไม่มีคิวถัดไป',
+                    // ครั้งถัดไปนับจากวันที่ปิดงาน จึงบอกวันจริงไปเลยตั้งแต่ก่อนกด ไม่ต้องเดา
+                    'next' => $nextQueueNote($a),
                 ]]);
         @endphp
         const completable = @json($completable, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);

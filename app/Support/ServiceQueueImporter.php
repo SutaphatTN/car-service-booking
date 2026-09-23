@@ -72,8 +72,9 @@ class ServiceQueueImporter
             }
 
             foreach ($rows as $row) {
-                // ติดธง "ติดต่อไม่ได้" ไว้ = เจ้าหน้าที่ลงมือกับคิวนี้แล้ว ลบทิ้งเงียบ ๆ ไม่ได้
-                if ($row->confirmed_at === null && $row->completed_at === null && $row->unreachable_at === null) {
+                // ติดธงเลื่อนโทรหรือปิดคิวไว้ = เจ้าหน้าที่ลงมือกับคิวนี้แล้ว ลบทิ้งเงียบ ๆ ไม่ได้
+                if ($row->confirmed_at === null && $row->completed_at === null
+                    && $row->unreachable_at === null && $row->declined_at === null) {
                     $row->delete();
                     $stats['deleted']++;
 
@@ -155,9 +156,12 @@ class ServiceQueueImporter
                 $fields['source_missing_at'] = null;
             }
 
-            if ($row->needsCall()) {
+            // คิดวันครบกำหนดใหม่ได้เฉพาะครั้งแรก เพราะครั้งนั้นเท่านั้นที่ยึดวันส่งมอบเป็นตัวตั้ง
+            // ครั้งที่ 2 ขึ้นไปนับจากวันที่ปิดรอบก่อนหน้า ฝ่ายขายแก้วันส่งมอบก็ไม่เกี่ยวกันแล้ว
+            // (ถ้าคำนวณทับจะกลายเป็นดึงวันนัดย้อนกลับไปหาวันส่งมอบทุกรอบที่ดึงข้อมูล)
+            if ($row->needsCall() && (int) $row->service_no === 1) {
                 $service = ServiceSchedule::serviceFor(
-                    $car->brand, $car->model_id, Carbon::parse($car->delivered_at), (int) $row->service_no
+                    $car->brand, $car->model_id, Carbon::parse($car->delivered_at), 1
                 );
 
                 if ($service !== null) {
@@ -177,8 +181,14 @@ class ServiceQueueImporter
     }
 
     /**
-     * สร้างคิวครั้งถัดไปหลังปิดงานครั้งนี้ — คืน null เมื่อจบตารางแล้ว
-     * นับต่อจากวันส่งมอบเดิมเสมอ ไม่ใช่นับจากวันที่เพิ่งเช็คเสร็จ
+     * สร้างคิวครั้งถัดไปหลังปิดรอบนี้ — คืน null เมื่อจบตารางแล้ว
+     *
+     * นับจาก "วันที่ปิดรอบนี้" ไม่ใช่วันส่งมอบ เพราะรถที่เข้าช้ากว่ากำหนดไปหลายเดือน
+     * ถ้ายังนับจากวันส่งมอบเหมือนเดิมจะโดนเรียกเข้าอีกรอบเร็วเกินไป
+     * (ครั้งแรกยังนับจากวันส่งมอบอยู่ เพราะตอนนั้นยังไม่มีวันเข้าศูนย์ให้ยึด)
+     *
+     * วันปิดรอบคือวันที่เช็คเสร็จจริง หรือวันที่ลูกค้าบอกว่าไม่เข้าครั้งนี้ — ปิดด้วยวิธีไหน
+     * ก็นับจากวันนั้นเหมือนกัน จะได้ไม่ต้องจำว่าคิวไหนถูกปิดด้วยปุ่มอะไร
      */
     public function createNextFor(Appointment $done): ?Appointment
     {
@@ -186,8 +196,10 @@ class ServiceQueueImporter
             return null;
         }
 
-        $next = ServiceSchedule::serviceFor(
-            $done->brand?->name ?? '', $done->model_id, $done->delivered_at->copy(), $done->service_no + 1
+        $closedAt = $done->completed_at ?? $done->declined_at ?? now();
+
+        $next = ServiceSchedule::nextAfterService(
+            $done->brand?->name ?? '', $done->model_id, Carbon::parse($closedAt), $done->service_no
         );
 
         if ($next === null) {
