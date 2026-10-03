@@ -210,6 +210,14 @@ button.ghost {
   font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s;
 }
 button.ghost:hover { border-color: #cfd8ea; background: #fbfcfe; }
+/* ลิงก์ที่หน้าตาเป็นปุ่ม (เช่นดาวน์โหลด Excel) — สูงเท่าปุ่มหลักที่วางข้างกัน */
+a.button.ghost {
+  display: inline-flex; align-items: center; text-decoration: none;
+  background: #fff; color: var(--ink-soft); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 10px 18px; font-size: 14.5px; font-weight: 600;
+  transition: border-color .15s, background .15s;
+}
+a.button.ghost:hover { border-color: #cfd8ea; background: #fbfcfe; color: var(--ink); }
 button.ghost.danger { color: var(--danger); }
 button.ghost.danger:hover { border-color: #f0b3ad; background: var(--danger-soft); }
 /* ปุ่มที่ถูกล็อกระหว่างส่งฟอร์ม — ต้องเห็นชัดว่ากดซ้ำไม่ได้แล้ว และ hover ต้องไม่เปลี่ยนสี */
@@ -342,7 +350,7 @@ td .sub, td.sub { color: var(--muted); font-size: 12.5px; }
    ========================================================= */
 .filters { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
 .filters label.field { flex: 1 1 190px; min-width: 170px; }
-.filters button { flex: none; }
+.filters button, .filters a.button { flex: none; }
 
 .quick-ranges {
   display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
@@ -354,6 +362,8 @@ td .sub, td.sub { color: var(--muted); font-size: 12.5px; }
 }
 .chip-link:hover { border-color: var(--brand); color: var(--brand); }
 .chip-link.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+.report-tabs { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
 
 .range-note { margin: 0 0 16px; font-size: 13.5px; color: var(--muted); }
 .range-note b { color: var(--ink); }
@@ -671,6 +681,7 @@ tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 .month-jump select:hover { border-color: #cfd8ea; }
 /* ปุ่มสลับมุมมองไปชิดขวาสุด แยกออกจากกลุ่มปุ่มเลื่อนเดือน */
 .month-bar .month-switch { margin-inline-start: auto; }
+.view-switch { display: flex; gap: 6px; }
 
 /* หัวกลุ่มคั่นระหว่าง "คิวค้างเก่า" กับ "คิวของเดือนที่เลือก" */
 tr.group-row td {
@@ -751,6 +762,7 @@ tr.group-row:hover td.group-overdue { background: var(--warn-soft); }
   .month-jump { flex: 1 1 auto; }
   .month-jump select { width: 100%; font-size: 16px; text-align: center; }
   .month-bar .month-switch { flex: 1 1 100%; margin-inline-start: 0; text-align: center; }
+  .view-switch .chip-link { flex: 1 1 0; }
   tr.group-row td { padding-inline: 14px; }
 
   /* ---- ขยายเป้ากดให้พอดีนิ้ว ---- */

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BrandSwitchController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CallListController;
+use App\Http\Controllers\CallReportController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [AppointmentController::class, 'index'])->name('appointments.index');
         Route::get('calendar', [CalendarController::class, 'index'])->name('calendar.index');
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+        Route::get('reports/calls', [CallReportController::class, 'index'])->name('reports.calls');
+        Route::get('reports/calls/export', [CallReportController::class, 'export'])->name('reports.calls.export');
 
         /*
         | รายการต้องโทรหาลูกค้า — คิวเช็คระยะที่ใกล้ถึงกำหนดแต่ยังไม่ได้ยืนยัน

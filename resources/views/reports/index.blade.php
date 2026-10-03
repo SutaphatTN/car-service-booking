@@ -19,6 +19,8 @@
         </div>
     </div>
 
+    @include('reports.tabs')
+
     <div class="card">
         <form method="GET" action="{{ route('reports.index') }}">
             <div class="filters">
@@ -31,6 +33,8 @@
                 </label>
 
                 <button type="submit" class="primary">ดูรายงาน</button>
+                {{-- ส่งออกตามช่วงที่แสดงอยู่ (ไม่ใช่ค่าที่เพิ่งพิมพ์ในช่องแต่ยังไม่กดดูรายงาน) --}}
+                <a class="button ghost" download href="{{ route('reports.export', ['from' => $from->toDateString(), 'to' => $to->toDateString()]) }}">ดาวน์โหลด Excel</a>
             </div>
         </form>
 

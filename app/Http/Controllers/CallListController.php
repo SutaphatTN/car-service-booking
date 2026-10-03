@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
+use App\Models\CallLog;
 use App\Support\Schedule;
 use App\Support\ServiceQueueImporter;
 use Carbon\Carbon;
@@ -17,8 +18,11 @@ use Illuminate\View\View;
  */
 class CallListController extends Controller
 {
-    /** โทรล่วงหน้ากี่วันก่อนถึงวันครบกำหนด */
-    public const CALL_AHEAD_DAYS = 30;
+    /** โทรล่วงหน้ากี่วันก่อนถึงวันครบกำหนด — ค่าเริ่มต้นตอนเปิดหน้า */
+    public const CALL_AHEAD_DAYS = 7;
+
+    /** ช่วงวันที่มีปุ่มให้กดสลับบนหน้า (ส่ง ?days= อื่นมาเองก็ยังได้) */
+    public const CALL_AHEAD_PRESETS = [7, 30];
 
     public function index(Request $request): View
     {
@@ -94,8 +98,12 @@ class CallListController extends Controller
             'appointment_time.date_format' => 'รูปแบบเวลาไม่ถูกต้อง',
         ]);
 
+        $bookedAt = $data['appointment_date'].' '.$data['appointment_time'].':00';
+
+        CallLog::record($appointment, 'confirmed', ['booked_at' => $bookedAt]);
+
         $appointment->update([
-            'appointment_at' => $data['appointment_date'].' '.$data['appointment_time'].':00',
+            'appointment_at' => $bookedAt,
             'confirmed_at' => now(),
             // ติดต่อได้แล้ว ล้างสถานะโทรไม่ติดทิ้ง ไม่งั้นค้างเป็นข้อมูลเก่าในหน้ารายการนัดหมาย
             'unreachable_at' => null,
@@ -125,6 +133,9 @@ class CallListController extends Controller
 
         // กดผิด/ติดต่อได้แล้วโดยไม่ได้นัด — เอาสถานะออกให้กลับไปเป็นคิวรอโทรตามปกติ
         if ($request->boolean('clear')) {
+            // ผลที่กดผิดไม่นับในรายงานการโทร
+            CallLog::cancelLatest($appointment, ['unreachable', 'not_ready']);
+
             $appointment->update([
                 'unreachable_at' => null,
                 'recall_reason' => null,
@@ -151,6 +162,11 @@ class CallListController extends Controller
         // เลื่อนไปวันเดิมซ้ำไม่นับเป็นการโทรไม่ติดรอบใหม่ — กันกดปุ่มรัว ๆ แล้วตัวนับพุ่งเป็นสิบ
         // (หน้าเว็บล็อกปุ่มให้อยู่แล้ว ตรงนี้กันอีกชั้นเผื่อยิงซ้ำจากที่อื่นหรือเน็ตสะดุดแล้วส่งซ้ำ)
         $sameDay = $appointment->recall_at?->toDateString() === $data['recall_date'];
+
+        // ส่งซ้ำแบบเดิมเป๊ะไม่ใช่การโทรรอบใหม่ ไม่ต้องลงประวัติซ้ำ
+        if (! ($sameDay && $appointment->recall_reason === $data['recall_reason'])) {
+            CallLog::record($appointment, $data['recall_reason'], ['recall_at' => $data['recall_date']]);
+        }
 
         $appointment->update([
             'unreachable_at' => now(),
@@ -180,6 +196,8 @@ class CallListController extends Controller
                 return back()->withErrors(['declined_reason' => 'คิวของ '.$appointment->fullName().' ไม่ได้ถูกปิดไว้']);
             }
 
+            CallLog::cancelLatest($appointment, ['declined']);
+
             $appointment->update([
                 'declined_at' => null,
                 'declined_reason' => null,
@@ -202,6 +220,11 @@ class CallListController extends Controller
             'declined_reason.required' => 'กรุณาเลือกเหตุผล',
             'declined_reason.in' => 'เหตุผลที่เลือกไม่ถูกต้อง',
             'declined_note.max' => 'รายละเอียดยาวเกิน 200 ตัวอักษร',
+        ]);
+
+        CallLog::record($appointment, 'declined', [
+            'declined_reason' => $data['declined_reason'],
+            'note' => $data['declined_note'] ?? null,
         ]);
 
         $appointment->update([

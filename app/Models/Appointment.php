@@ -7,6 +7,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Appointment extends Model
 {
@@ -267,6 +269,33 @@ class Appointment extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** ประวัติการโทรของคิวนี้ */
+    public function callLogs(): HasMany
+    {
+        return $this->hasMany(CallLog::class);
+    }
+
+    /** การโทรครั้งแรกสุดของคิว (นับรวมที่ยกเลิกเพราะกดผิดด้วย) — ใช้หาวันครบกำหนดเดิม */
+    public function firstCallLog(): HasOne
+    {
+        return $this->hasOne(CallLog::class)->oldestOfMany();
+    }
+
+    /**
+     * วันครบกำหนดเช็คระยะตามตาราง
+     *
+     * ตอนยืนยันนัด appointment_at ถูกเขียนทับเป็นวันนัดจริง วันครบกำหนดเดิมจึงต้องเอาจาก
+     * ประวัติการโทรครั้งแรก (ก่อนครั้งแรกยังไม่เคยเลื่อนโทร วันที่ต้องโทรตอนนั้นคือวันครบกำหนด)
+     */
+    public function serviceDueDate(): CarbonInterface
+    {
+        if ($this->confirmed_at !== null && $this->firstCallLog) {
+            return $this->firstCallLog->due_date;
+        }
+
+        return $this->appointment_at->copy()->startOfDay();
     }
 
     /** เรียงตามวันและเวลานัด */

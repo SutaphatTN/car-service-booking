@@ -40,6 +40,21 @@ if (! function_exists('thai_month')) {
     }
 }
 
+if (! function_exists('relative_days')) {
+    /** นับวันจากวันนี้ เช่น "วันนี้" / "อีก 5 วัน" / "เลยกำหนด 3 วัน" ($pastLabel เปลี่ยนคำของฝั่งที่ผ่านมาแล้ว) */
+    function relative_days(CarbonInterface|string $date, string $pastLabel = 'ผ่านมา'): string
+    {
+        $date = $date instanceof CarbonInterface ? $date : Carbon::parse($date);
+        $days = (int) now()->startOfDay()->diffInDays($date->copy()->startOfDay(), false);
+
+        return match (true) {
+            $days === 0 => 'วันนี้',
+            $days > 0 => 'อีก '.$days.' วัน',
+            default => $pastLabel.' '.abs($days).' วัน',
+        };
+    }
+}
+
 if (! function_exists('baht')) {
     /** จัดรูปแบบจำนวนเงิน/ตัวเลขให้มีลูกน้ำ */
     function baht(int|float $amount): string

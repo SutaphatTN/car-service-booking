@@ -10,7 +10,7 @@
     $keepDays = $days === $defaultDays ? [] : ['days' => $days];
 
     $monthUrl = fn ($m) => route('calls.index', $keepSearch + ['month' => $m->format('Y-m')]);
-    $daysUrl = route('calls.index', $keepSearch + $keepDays);
+    $daysUrl = fn (int $d) => route('calls.index', $keepSearch + ($d === $defaultDays ? [] : ['days' => $d]));
 @endphp
 
 @section('content')
@@ -94,19 +94,27 @@
                 @unless ($month->isSameMonth(now()))
                     <a class="chip-link" href="{{ $monthUrl(now()) }}">เดือนนี้</a>
                 @endunless
-
-                <a class="chip-link month-switch" href="{{ $daysUrl }}">ดูแบบ {{ $days }} วันข้างหน้า</a>
             @else
                 <div class="month-title">{{ $days }} วันข้างหน้า</div>
-                <a class="chip-link month-switch" href="{{ $monthUrl(now()) }}">ดูเป็นรายเดือน</a>
             @endif
+
+            {{-- สลับมุมมอง: นับวันข้างหน้า (7 / 30) หรือดูตามเดือนปฏิทิน --}}
+            <div class="month-switch view-switch">
+                @foreach (App\Http\Controllers\CallListController::CALL_AHEAD_PRESETS as $preset)
+                    <a @class(['chip-link', 'active' => ! $month && $days === $preset])
+                       href="{{ $daysUrl($preset) }}">{{ $preset }} วัน</a>
+                @endforeach
+                <a @class(['chip-link', 'active' => (bool) $month])
+                   href="{{ $month ? $monthUrl($month) : $monthUrl(now()) }}">รายเดือน</a>
+            </div>
         </div>
 
         <div class="table-scroll">
             <table>
                 <thead>
                 <tr>
-                    <th style="width:160px">ต้องโทรวันที่</th>
+                    <th style="width:150px">ครบกำหนดเช็คระยะ</th>
+                    <th style="width:140px">ต้องโทร</th>
                     <th>ลูกค้า</th>
                     <th style="width:150px">เบอร์โทร</th>
                     <th style="width:160px">รถ</th>
@@ -120,13 +128,15 @@
                 @forelse ($calls as $call)
                     @php
                         $overdue = $call->isCallOverdue();
-                        $daysLeft = (int) now()->startOfDay()->diffInDays($call->callDueDate());
+                        $dueDate = $call->appointment_at->copy()->startOfDay();
+                        // ยังไม่ได้เลื่อน = เริ่มโทรได้ก่อนครบกำหนด CALL_AHEAD_DAYS วัน (ตามเกณฑ์ค่าตั้งต้นของหน้านี้)
+                        $callFrom = $call->isPostponed() ? $call->recall_at : $dueDate->copy()->subDays($defaultDays);
                     @endphp
 
                     @if ($month && $overdue !== $lastGroup)
                         @php $lastGroup = $overdue; @endphp
                         <tr class="group-row">
-                            <td colspan="6" @class(['group-overdue' => $overdue])>
+                            <td colspan="7" @class(['group-overdue' => $overdue])>
                                 @if ($overdue)
                                     เลยกำหนดแล้ว — ค้างมาจากก่อนหน้านี้ ควรโทรก่อน
                                 @else
@@ -137,21 +147,23 @@
                     @endif
 
                     <tr @class(['row-overdue' => $overdue])>
+                        {{-- วันครบกำหนดตามตารางเช็คระยะ — ไม่ขยับตามการเลื่อนโทร --}}
                         <td>
-                            <b>{{ thai_date($call->callDueDate(), short: true) }}</b>
-                            <div class="sub">
-                                @if ($overdue)
-                                    เลยกำหนดแล้ว
-                                @elseif ($daysLeft === 0)
-                                    วันนี้
-                                @else
-                                    อีก {{ $daysLeft }} วัน
-                                @endif
-                            </div>
+                            <b>{{ thai_date($dueDate, short: true) }}</b>
+                            <div class="sub">{{ relative_days($dueDate, 'เลยกำหนด') }}</div>
+                        </td>
+                        {{-- วันที่ควรโทร — เลื่อนไว้ก็ยึดวันที่เลื่อน ไม่งั้นโทรได้ตั้งแต่ก่อนครบกำหนด --}}
+                        <td>
                             @if ($call->isPostponed())
+                                <b>{{ thai_date($callFrom, short: true) }}</b>
                                 <div class="sub recall-note">
-                                    เลื่อนจาก {{ thai_date($call->appointment_at, short: true) }}
+                                    นัดโทรซ้ำ · {{ relative_days($callFrom, 'เลยวันโทร') }}
                                 </div>
+                            @elseif ($callFrom->lte(now()->startOfDay()))
+                                <b>โทรได้เลย</b>
+                            @else
+                                <b>{{ thai_date($callFrom, short: true) }}</b>
+                                <div class="sub">{{ relative_days($callFrom) }}</div>
                             @endif
                         </td>
                         <td>
@@ -202,7 +214,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="empty">
+                        <td colspan="7" class="empty">
                             @if ($search)
                                 ไม่พบรายการที่ตรงกับ "{{ $search }}" ใน{{ $month ? 'เดือน'.thai_month($month) : 'ช่วงนี้' }}
                             @elseif ($month)

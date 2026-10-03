@@ -3,15 +3,66 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
+use App\Support\XlsxWriter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ReportController extends Controller
 {
     /** รายงานนัดหมายตามช่วงวันที่ */
     public function index(Request $request): View
+    {
+        [$from, $to, $appointments] = $this->report($request);
+
+        return view('reports.index', [
+            'from' => $from,
+            'to' => $to,
+            'appointments' => $appointments,
+            'summary' => $this->summarise($appointments, $from, $to),
+        ]);
+    }
+
+    /** ดาวน์โหลดเป็น Excel — ช่วงวันที่เดียวกับที่เห็นบนหน้าจอ */
+    public function export(Request $request): BinaryFileResponse
+    {
+        [$from, $to, $appointments] = $this->report($request);
+
+        $rows = [[
+            'วันที่นัด', 'เวลา', 'ชื่อ - นามสกุล', 'เบอร์โทร', 'เบอร์สำรอง', 'รุ่น', 'เลขตัวถัง VIN',
+            'ครั้งที่', 'ส่งมอบจริง', 'เลขไมล์ (กม.)', 'สถานะ', 'ผู้บันทึก',
+        ]];
+
+        foreach ($appointments as $appointment) {
+            $rows[] = [
+                thai_date($appointment->appointment_at, short: true),
+                $appointment->appointment_at->format('H:i'),
+                $appointment->fullName(),
+                phone_format($appointment->phone),
+                phone_format($appointment->phone2),
+                $appointment->model_name,
+                $appointment->vin,
+                $appointment->service_no,
+                $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : null,
+                $appointment->mileage,
+                $appointment->status(),
+                $appointment->creator?->name,
+            ];
+        }
+
+        $range = $from->isSameDay($to)
+            ? $from->format('Y-m-d')
+            : $from->format('Y-m-d').'_'.$to->format('Y-m-d');
+
+        return (new XlsxWriter)
+            ->addSheet('นัดหมาย', $rows, [13, 8, 32, 14, 14, 20, 21, 8, 13, 13, 16, 18])
+            ->download('รายงานนัดหมาย_'.$range.'.xlsx');
+    }
+
+    /** @return array{Carbon, Carbon, Collection<int, Appointment>} */
+    private function report(Request $request): array
     {
         $filters = $request->validate([
             'from' => ['nullable', 'date_format:Y-m-d'],
@@ -36,12 +87,7 @@ class ReportController extends Controller
             ->ordered()
             ->get();
 
-        return view('reports.index', [
-            'from' => $from,
-            'to' => $to,
-            'appointments' => $appointments,
-            'summary' => $this->summarise($appointments, $from, $to),
-        ]);
+        return [$from, $to, $appointments];
     }
 
     /**
