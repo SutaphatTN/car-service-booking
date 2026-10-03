@@ -7,6 +7,8 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CallListController;
 use App\Http\Controllers\CallReportController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\TechnicianController;
+use App\Http\Controllers\TechnicianWorkController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +67,22 @@ Route::middleware('auth')->group(function () {
         Route::delete('appointments/{appointment}', [AppointmentController::class, 'destroy'])
             ->middleware('role:sa')
             ->name('appointments.destroy');
+
+        /*
+        | ปริมาณงานช่าง — ปฏิทินรายวัน + ลงงาน (สิทธิ์แก้/ลบตรวจใน controller)
+        */
+        Route::get('work', [TechnicianWorkController::class, 'index'])->name('work.index');
+        Route::post('work', [TechnicianWorkController::class, 'store'])->name('work.store');
+        Route::patch('work/{job}', [TechnicianWorkController::class, 'update'])->name('work.update');
+        Route::delete('work/{job}', [TechnicianWorkController::class, 'destroy'])->name('work.destroy');
+
+        // รายชื่อช่าง — admin เท่านั้น
+        Route::middleware('role:admin')->group(function () {
+            Route::get('technicians', [TechnicianController::class, 'index'])->name('technicians.index');
+            Route::post('technicians', [TechnicianController::class, 'store'])->name('technicians.store');
+            Route::patch('technicians/{technician}', [TechnicianController::class, 'update'])->name('technicians.update');
+            Route::delete('technicians/{technician}', [TechnicianController::class, 'destroy'])->name('technicians.destroy');
+        });
     });
 
     /*

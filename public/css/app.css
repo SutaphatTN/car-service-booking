@@ -92,6 +92,30 @@ main.wrap { padding-top: 26px; padding-bottom: 72px; }
 .navbar a:hover { color: var(--ink); }
 .navbar a.active { color: var(--brand); border-bottom-color: var(--brand); }
 
+/* ปุ่มเมนูที่มีเมนูย่อย — หน้าตาเหมือนลิงก์ในแถบ */
+.navbar .nav-drop-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 13px 18px; border: 0; border-bottom: 3px solid transparent; background: transparent;
+  font: inherit; font-weight: 600; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.navbar .nav-drop-btn:hover { color: var(--ink); }
+.navbar .nav-drop-btn.active { color: var(--brand); border-bottom-color: var(--brand); }
+.navbar .nav-drop-btn .caret {
+  width: 0; height: 0; border-inline: 4px solid transparent; border-top: 5px solid currentColor; opacity: .7;
+}
+.nav-drop {
+  position: fixed; z-index: 60; min-width: 210px; margin-top: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 13px;
+  box-shadow: var(--shadow-lg); padding: 6px;
+}
+.nav-drop a {
+  display: block; padding: 9px 12px; border-radius: 9px; text-decoration: none;
+  font-size: 13.5px; font-weight: 500; color: var(--ink-soft);
+}
+.nav-drop a:hover { background: var(--line-soft); color: var(--ink); }
+.nav-drop a.active { color: var(--brand); font-weight: 600; }
+
 /* ---- เมนูบัญชี (dropdown) ---- */
 .account { position: relative; }
 .account-btn {
@@ -296,8 +320,11 @@ button.ghost.danger:disabled:hover { border-color: var(--line); background: #fff
   .spinner { animation-duration: 2.6s; }
 }
 .err { color: var(--danger); font-size: 12.5px; margin-top: 5px; display: block; }
-input.is-invalid, select.is-invalid { border-color: #e8a49c; }
-input.is-invalid:focus, select.is-invalid:focus { box-shadow: 0 0 0 3px rgba(180, 35, 24, .12); }
+input.is-invalid, select.is-invalid, textarea.is-invalid { border-color: #e8a49c; }
+input.is-invalid:focus, select.is-invalid:focus, textarea.is-invalid:focus { box-shadow: 0 0 0 3px rgba(180, 35, 24, .12); }
+/* ยืดได้แค่แนวตั้ง — ยืดแนวนอนแล้วล้นป็อปอัป */
+textarea { resize: vertical; line-height: 1.55; }
+textarea:hover { border-color: #cfd8ea; }
 
 .badge {
   display: inline-block; padding: 2px 10px; border-radius: 999px;
@@ -863,4 +890,85 @@ body.page-login main.wrap { padding-top: 0; padding-bottom: 40px; }
   .login-card { padding: 26px 20px 22px; border-radius: 18px; }
   .login-mark { width: 48px; height: 48px; border-radius: 14px; }
   .login-mark svg { width: 27px; height: 27px; }
+}
+
+/* =========================================================
+   ปริมาณงานช่าง — ปฏิทินรายวัน (ช่างเป็นแถว เวลาเป็นแกนนอน)
+   ========================================================= */
+.month-jump input[type="date"] {
+  width: auto; margin-top: 0; padding: 7px 10px;
+  font-size: 14.5px; font-weight: 700; color: var(--ink); cursor: pointer;
+}
+
+/* สีประจำประเภทงาน — ใช้ทั้งบล็อกงาน ป้ายสรุป และตัวเลือกในฟอร์ม */
+.job-PM  { --job: #2563eb; --job-soft: #eaf0ff; }
+.job-GR  { --job: #c2410c; --job-soft: #fff1e6; }
+.job-PDI { --job: #067647; --job-soft: #e7f6ee; }
+.job-PDS { --job: #7c3aed; --job-soft: #f3edff; }
+
+.work-legend { display: flex; gap: 6px; flex-wrap: wrap; margin-inline-start: auto; }
+.job-tag {
+  display: inline-flex; gap: 5px; align-items: center; padding: 3px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; background: var(--job-soft); color: var(--job);
+}
+.job-tag b { color: var(--ink); font-weight: 700; }
+
+/* จอแคบเลื่อนตารางแนวนอนได้ — ย่อจนบล็อกงานอ่านไม่ออกไม่มีประโยชน์ */
+.work-scroll { overflow-x: auto; }
+.work-board { min-width: 780px; }
+.work-row { display: grid; grid-template-columns: 170px 1fr; border-bottom: 1px solid var(--line-soft); }
+.work-row:last-child { border-bottom: 0; }
+.work-name {
+  padding: 12px 14px 12px 18px; border-inline-end: 1px solid var(--line);
+  background: #fafbfd; font-size: 14px; line-height: 1.35;
+}
+.work-name .sub { font-size: 12px; color: var(--muted); }
+
+/* เส้นแบ่งทุกชั่วโมง — วาดด้วยพื้นหลัง ไม่ต้องมีแท็กเพิ่มทีละเส้น */
+.work-track {
+  position: relative; min-height: 62px;
+  background-image: linear-gradient(to right, var(--line-soft) 1px, transparent 1px);
+  background-size: calc(100% / var(--hours)) 100%;
+}
+.work-track.can-add { cursor: copy; }
+.work-track.can-add:hover { background-color: #fbfcff; }
+
+.work-head .work-name { font-size: 12.5px; font-weight: 600; color: var(--muted); padding-block: 9px; }
+.work-head .work-track { min-height: 0; background: #fafbfd; }
+.work-hour {
+  position: absolute; top: 9px; transform: translateX(-50%);
+  font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap;
+}
+.work-hour:first-child { transform: none; padding-inline-start: 4px; }
+.work-hour:last-child { transform: translateX(-100%); padding-inline-end: 4px; }
+
+.job {
+  position: absolute; top: 7px; bottom: 7px; min-width: 6px;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  padding: 3px 8px; overflow: hidden; text-align: start; cursor: pointer;
+  border: 0; border-inline-start: 3px solid var(--job); border-radius: 7px;
+  background: var(--job-soft); color: var(--ink); font: inherit; font-size: 11.5px; line-height: 1.3;
+  box-shadow: 0 0 0 1px #fff;
+}
+.job:hover { filter: brightness(.97); box-shadow: 0 0 0 1px #fff, 0 3px 10px -4px rgba(16, 24, 40, .35); }
+.job b { color: var(--job); font-size: 12px; }
+.job b, .job span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ฟอร์มลงงาน */
+fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
+.job-types { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.job-type-option {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  padding: 8px 16px; border: 1px solid var(--line); border-radius: var(--r-md);
+  font-size: 14px; font-weight: 700; color: var(--job); background: #fff;
+}
+.job-type-option input { accent-color: var(--job); width: 15px; height: 15px; margin: 0; }
+.job-type-option:has(input:checked) { background: var(--job-soft); border-color: var(--job); }
+fieldset:disabled .job-type-option { cursor: default; }
+
+@media (max-width: 760px) {
+  .navbar .nav-drop-btn { padding-inline: 13px; }
+  .work-legend { margin-inline-start: 0; flex: 1 1 100%; }
+  .work-row { grid-template-columns: 120px 1fr; }
+  .work-name { padding-inline: 12px 10px; }
 }

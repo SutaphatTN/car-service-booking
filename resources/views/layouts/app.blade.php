@@ -100,6 +100,19 @@
             <a href="{{ route('calendar.index') }}" @class(['active' => request()->routeIs('calendar.*')])>ปฏิทิน</a>
             <a href="{{ route('calls.index') }}" @class(['active' => request()->routeIs('calls.*')])>ต้องโทรหา</a>
             <a href="{{ route('reports.index') }}" @class(['active' => request()->routeIs('reports.*')])>รายงาน</a>
+            <button type="button" id="workMenuBtn" aria-expanded="false" aria-haspopup="true"
+                    @class(['nav-drop-btn', 'active' => request()->routeIs('work.*', 'technicians.*')])>
+                ปริมาณงานช่าง <span class="caret" aria-hidden="true"></span>
+            </button>
+        </div>
+
+        {{-- อยู่นอก .wrap เพราะจอแคบ .wrap เลื่อนแนวนอนได้ (overflow) เมนูที่อยู่ข้างในจะถูกตัด --}}
+        <div class="nav-drop" id="workMenu" hidden>
+            <a href="{{ route('work.index') }}" @class(['active' => request()->routeIs('work.*') && ! request()->boolean('add')])>ปฏิทินงานช่าง</a>
+            <a href="{{ route('work.index', ['add' => 1]) }}" @class(['active' => request()->routeIs('work.*') && request()->boolean('add')])>เพิ่มข้อมูลงานช่าง</a>
+            @if (auth()->user()->canManageTechnicians())
+                <a href="{{ route('technicians.index') }}" @class(['active' => request()->routeIs('technicians.*')])>ข้อมูลช่าง</a>
+            @endif
         </div>
     </nav>
 @endauth
@@ -136,6 +149,40 @@
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') toggleAccount(false);
         });
+
+        // เมนู "ปริมาณงานช่าง" บนแถบเมนู — วางด้วย position: fixed ใต้ปุ่ม
+        // (ตัวเมนูอยู่นอกแถบที่เลื่อนแนวนอนได้ ไม่งั้นจอแคบจะโดนตัด)
+        const workMenuBtn = document.getElementById('workMenuBtn');
+        const workMenu = document.getElementById('workMenu');
+
+        function toggleWorkMenu(open) {
+            workMenu.hidden = !open;
+            workMenuBtn.setAttribute('aria-expanded', String(open));
+
+            if (open) {
+                const box = workMenuBtn.getBoundingClientRect();
+                workMenu.style.top = box.bottom + 'px';
+                workMenu.style.left = Math.max(8, Math.min(box.left, window.innerWidth - workMenu.offsetWidth - 8)) + 'px';
+            }
+        }
+
+        workMenuBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleWorkMenu(workMenu.hidden);
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!workMenu.contains(event.target)) toggleWorkMenu(false);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') toggleWorkMenu(false);
+        });
+
+        // เลื่อนหน้าแล้วเมนูที่ fixed ไว้จะลอยค้างผิดที่ ปิดไปเลยดีกว่า
+        window.addEventListener('scroll', () => toggleWorkMenu(false), { passive: true });
+        window.addEventListener('resize', () => toggleWorkMenu(false));
+        workMenuBtn.parentElement.addEventListener('scroll', () => toggleWorkMenu(false), { passive: true });
     </script>
 @endauth
 

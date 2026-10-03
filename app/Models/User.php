@@ -50,6 +50,18 @@ class User extends Authenticatable
         return $this->role === Role::Admin;
     }
 
+    /** จัดการรายชื่อช่าง ทำได้เฉพาะ admin */
+    public function canManageTechnicians(): bool
+    {
+        return $this->role === Role::Admin;
+    }
+
+    /** ลงงานช่างย้อนหลัง และแก้/ลบงานของคนอื่นได้ — เฉพาะ admin กันแอบลงงานเพิ่มเพื่อค่าคอม */
+    public function canBackdateWork(): bool
+    {
+        return $this->role === Role::Admin;
+    }
+
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class, 'created_by');
