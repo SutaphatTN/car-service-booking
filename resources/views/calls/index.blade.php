@@ -266,6 +266,11 @@
                     </label>
                 </div>
 
+                <label class="field" style="display:block;margin-top:12px">หมายเหตุ <span class="muted">(ไม่บังคับ)</span>
+                    <textarea name="note" id="confirmNote" rows="3" maxlength="1000"
+                              placeholder="เช่น เช็คระยะ 10,000 กม. / ลูกค้าแจ้งอาการเพิ่ม"></textarea>
+                </label>
+
                 <div class="alert info" style="margin-top:14px">
                     วันที่ตั้งไว้คือวันครบกำหนดตามตารางเช็คระยะ ถ้าลูกค้าไม่สะดวกให้เปลี่ยนได้ตามที่ตกลงกัน
                 </div>
@@ -382,6 +387,7 @@
                 'date' => $c->appointment_at->toDateString(),
                 'time' => $c->appointment_at->format('H:i'),
                 'url'  => route('calls.confirm', $c),
+                'note' => $c->note ?? '',
 
                 'unreachableUrl' => route('calls.unreachable', $c),
                 'declineUrl' => route('calls.decline', $c),
@@ -401,6 +407,7 @@
         const confirmDate = document.getElementById('confirmDate');
         const confirmTime = document.getElementById('confirmTime');
         const confirmWho = document.getElementById('confirmWho');
+        const confirmNote = document.getElementById('confirmNote');
 
         window.openConfirm = function (id) {
             const call = calls[id];
@@ -409,6 +416,7 @@
             confirmForm.action = call.url;
             confirmDate.value = call.date;
             confirmWho.textContent = call.name;
+            confirmNote.value = call.note;
 
             // เวลาที่ตั้งไว้อาจไม่อยู่ในช่วงเวลาทำการ (เช่น 08:00 ตั้งต้น) เลือกได้ก็เลือก
             confirmTime.value = call.time;

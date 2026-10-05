@@ -90,6 +90,9 @@
                         </td>
                         <td>
                             <b>{{ $appointment->fullName() }}</b>
+                            @if ($appointment->note)
+                                <div class="sub appt-note" title="{{ $appointment->note }}">หมายเหตุ: {{ $appointment->note }}</div>
+                            @endif
                             @if ($appointment->source_missing_at)
                                 <div class="sub source-missing"
                                      title="ใบขายนี้ถูกลบหรือถอนสถานะส่งมอบในระบบฝ่ายขายแล้ว">

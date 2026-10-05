@@ -32,7 +32,7 @@ class ReportController extends Controller
 
         $rows = [[
             'วันที่นัด', 'เวลา', 'ชื่อ - นามสกุล', 'เบอร์โทร', 'เบอร์สำรอง', 'รุ่น', 'เลขตัวถัง VIN',
-            'ครั้งที่', 'ส่งมอบจริง', 'เลขไมล์ (กม.)', 'สถานะ', 'ผู้บันทึก',
+            'ครั้งที่', 'ส่งมอบจริง', 'เลขไมล์ (กม.)', 'สถานะ', 'หมายเหตุ', 'ผู้บันทึก',
         ]];
 
         foreach ($appointments as $appointment) {
@@ -48,6 +48,7 @@ class ReportController extends Controller
                 $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : null,
                 $appointment->mileage,
                 $appointment->status(),
+                $appointment->note,
                 $appointment->creator?->name,
             ];
         }
@@ -57,7 +58,7 @@ class ReportController extends Controller
             : $from->format('Y-m-d').'_'.$to->format('Y-m-d');
 
         return (new XlsxWriter)
-            ->addSheet('นัดหมาย', $rows, [13, 8, 32, 14, 14, 20, 21, 8, 13, 13, 16, 18])
+            ->addSheet('นัดหมาย', $rows, [13, 8, 32, 14, 14, 20, 21, 8, 13, 13, 16, 40, 18])
             ->download('รายงานนัดหมาย_'.$range.'.xlsx');
     }
 

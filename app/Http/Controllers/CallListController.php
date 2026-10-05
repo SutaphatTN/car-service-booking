@@ -91,11 +91,13 @@ class CallListController extends Controller
         $data = $request->validate([
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'date_format:H:i'],
+            'note' => ['nullable', 'string', 'max:1000'],
         ], [
             'appointment_date.required' => 'กรุณาเลือกวันที่นัด',
             'appointment_date.date_format' => 'รูปแบบวันที่ไม่ถูกต้อง',
             'appointment_time.required' => 'กรุณาเลือกเวลานัด',
             'appointment_time.date_format' => 'รูปแบบเวลาไม่ถูกต้อง',
+            'note.max' => 'หมายเหตุยาวเกิน 1,000 ตัวอักษร',
         ]);
 
         $bookedAt = $data['appointment_date'].' '.$data['appointment_time'].':00';
@@ -104,6 +106,8 @@ class CallListController extends Controller
 
         $appointment->update([
             'appointment_at' => $bookedAt,
+            // ส่งช่องว่างมา = ลบหมายเหตุเดิม (ป็อปอัปเติมของเดิมไว้ให้แก้แล้ว)
+            'note' => trim((string) ($data['note'] ?? '')) ?: null,
             'confirmed_at' => now(),
             // ติดต่อได้แล้ว ล้างสถานะโทรไม่ติดทิ้ง ไม่งั้นค้างเป็นข้อมูลเก่าในหน้ารายการนัดหมาย
             'unreachable_at' => null,

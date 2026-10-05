@@ -122,6 +122,13 @@
 
                 row.append(time, name, detail);
 
+                if (item.note) {
+                    const note = document.createElement('div');
+                    note.className = 'sub appt-note';
+                    note.textContent = 'หมายเหตุ: ' + item.note;
+                    row.append(note);
+                }
+
                 // VIN กับวันส่งมอบเป็นช่องไม่บังคับ มีค่อยแสดงบรรทัดนี้
                 if (item.vin || item.delivered) {
                     const car = document.createElement('div');

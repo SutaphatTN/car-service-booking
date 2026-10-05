@@ -111,6 +111,12 @@
                     @enderror
                 </label>
             </div>
+
+            <label class="field" style="display:block;margin-top:12px">หมายเหตุ <span class="muted">(ไม่บังคับ)</span>
+                <textarea name="note" rows="3" maxlength="1000" placeholder="เช่น เช็คระยะ 10,000 กม."
+                          class="@error('note') is-invalid @enderror">{{ old('note') }}</textarea>
+                @error('note') <span class="err">{{ $message }}</span> @enderror
+            </label>
         </div>
 
         <div class="modal-foot">

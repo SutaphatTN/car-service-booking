@@ -71,6 +71,7 @@ class AppointmentController extends Controller
             'delivered_at' => $request->validated('delivered_at'),
             'mileage' => $request->validated('mileage'),
             'appointment_at' => $request->appointmentAt(),
+            'note' => $request->validated('note'),
             'created_by' => $request->user()->id,
             // คีย์เองแปลว่าตกลงวันเวลากับลูกค้ามาแล้ว ไม่ต้องไปโผล่ในรายการต้องโทรหาอีก
             'confirmed_at' => now(),

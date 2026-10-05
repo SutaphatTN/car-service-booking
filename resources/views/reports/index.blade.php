@@ -100,7 +100,12 @@
                             <b>{{ $appointment->appointment_at->format('H:i') }} น.</b>
                             <div class="sub">{{ thai_date($appointment->appointment_at) }}</div>
                         </td>
-                        <td><b>{{ $appointment->fullName() }}</b></td>
+                        <td>
+                            <b>{{ $appointment->fullName() }}</b>
+                            @if ($appointment->note)
+                                <div class="sub appt-note" title="{{ $appointment->note }}">หมายเหตุ: {{ $appointment->note }}</div>
+                            @endif
+                        </td>
                         <td>
                             @include('partials.phone-cell', [
                                 'phone' => $appointment->phone,

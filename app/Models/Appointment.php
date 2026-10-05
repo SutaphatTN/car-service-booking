@@ -17,7 +17,7 @@ class Appointment extends Model
 
     protected $fillable = [
         'brand_id', 'title_id', 'first_name', 'last_name', 'phone', 'phone2', 'vin', 'delivered_at',
-        'mileage', 'appointment_at', 'created_by',
+        'mileage', 'appointment_at', 'note', 'created_by',
         'salecar_id', 'service_no', 'model_id', 'model_name', 'confirmed_at', 'completed_at', 'source_missing_at',
         'unreachable_at', 'recall_reason', 'recall_at', 'unreachable_count',
         'declined_at', 'declined_reason', 'declined_note',

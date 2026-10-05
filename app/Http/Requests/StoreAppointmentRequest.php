@@ -29,6 +29,7 @@ class StoreAppointmentRequest extends FormRequest
             'mileage' => ['required', 'integer', 'min:0', 'max:9999999'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'date_format:H:i'],
+            'note' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -55,6 +56,7 @@ class StoreAppointmentRequest extends FormRequest
             'appointment_date.date_format' => 'รูปแบบวันที่ไม่ถูกต้อง',
             'appointment_time.required' => 'กรุณาเลือกเวลานัด',
             'appointment_time.date_format' => 'รูปแบบเวลาไม่ถูกต้อง',
+            'note.max' => 'หมายเหตุยาวเกิน 1,000 ตัวอักษร',
         ];
     }
 
@@ -70,6 +72,7 @@ class StoreAppointmentRequest extends FormRequest
                 ? str_replace([',', ' '], '', $this->input('mileage'))
                 : $this->input('mileage'),
             'appointment_time' => substr((string) $this->input('appointment_time'), 0, 5),
+            'note' => trim((string) $this->input('note')) ?: null,
         ]);
     }
 

@@ -84,6 +84,7 @@ class CalendarController extends Controller
             'vin' => $appointment->vin ?? '',
             'delivered' => $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : '',
             'creator' => $appointment->creator?->name ?? '-',
+            'note' => $appointment->note ?? '',
         ])->all())->all();
     }
 }
