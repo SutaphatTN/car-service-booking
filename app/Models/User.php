@@ -50,6 +50,12 @@ class User extends Authenticatable
         return $this->role === Role::Admin;
     }
 
+    /** แก้ไขนัดหมาย / ยกเลิกการยืนยันนัด — เฉพาะผู้ใช้ที่ระบุใน APPOINTMENT_EDITOR_IDS (ไม่ใช่ทั้ง role) */
+    public function canEditAppointments(): bool
+    {
+        return in_array($this->id, config('app.appointment_editor_ids', []), true);
+    }
+
     /** จัดการรายชื่อช่าง ทำได้เฉพาะ admin */
     public function canManageTechnicians(): bool
     {

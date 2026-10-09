@@ -136,7 +136,13 @@
     <div class="card" style="padding:0;overflow:hidden">
         <div class="status-bar">
             @foreach ($counts as $key => $count)
-                <a @class(['chip-link', 'active' => $key === $result]) href="{{ $resultUrl($key) }}">
+                {{-- คั่นกลุ่ม: ภาพรวม | แยกตามผล --}}
+                @if ($key === 'confirmed')
+                    <span class="status-sep" aria-hidden="true"></span>
+                @endif
+                <a @class(['chip-link', 'st-'.$key, 'active' => $key === $result, 'is-zero' => $count === 0])
+                   href="{{ $resultUrl($key) }}">
+                    <span class="st-dot" aria-hidden="true"></span>
                     {{ $resultLabels[$key] }}
                     <span class="chip-count">{{ baht($count) }}</span>
                 </a>
@@ -201,8 +207,7 @@
                             @include('partials.phone-cell', ['phone' => $call->phone, 'phone2' => $call->phone2])
                         </td>
                         <td>
-                            {{ $call->model_name ?? '-' }}
-                            <div class="sub"><code class="vin">{{ $call->vin }}</code></div>
+                            @include('partials.car-cell', ['appointment' => $call])
                         </td>
                         <td>
                             <span class="badge {{ $badgeClass[$row['result']] }}">{{ $resultLabels[$row['result']] }}</span>

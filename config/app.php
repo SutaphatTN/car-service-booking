@@ -80,6 +80,14 @@ return [
 
     'locale' => env('APP_LOCALE', 'en'),
 
+    /*
+    | ผู้ใช้ที่แก้ไขนัดหมายได้ (ปุ่มแก้ไขในหน้ารายการนัดหมาย) — ระบุเป็น users.id คั่นด้วยจุลภาค
+    | จำกัดเป็นรายคน ไม่ใช่ทั้ง role เพราะมี admin หลายคน แต่ให้แก้ได้แค่คนที่ดูแล
+    */
+    'appointment_editor_ids' => array_values(array_filter(array_map(
+        'intval', explode(',', (string) env('APPOINTMENT_EDITOR_IDS', '2'))
+    ))),
+
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),

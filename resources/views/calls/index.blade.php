@@ -188,8 +188,7 @@
                             @include('partials.phone-cell', ['phone' => $call->phone, 'phone2' => $call->phone2])
                         </td>
                         <td>
-                            {{ $call->model_name ?? '-' }}
-                            <div class="sub"><code class="vin">{{ $call->vin }}</code></div>
+                            @include('partials.car-cell', ['appointment' => $call])
                         </td>
                         <td>{{ $call->service_no ? 'ครั้งที่ '.$call->service_no : '-' }}</td>
                         <td class="right">

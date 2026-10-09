@@ -82,6 +82,7 @@ class CalendarController extends Controller
             'phone2' => $appointment->phone2 ? phone_format($appointment->phone2) : '',
             'mileage' => baht($appointment->mileage),
             'vin' => $appointment->vin ?? '',
+            'model' => trim(($appointment->model_name ?? '').' '.($appointment->submodel_name ?? '')),
             'delivered' => $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : '',
             'creator' => $appointment->creator?->name ?? '-',
             'note' => $appointment->note ?? '',

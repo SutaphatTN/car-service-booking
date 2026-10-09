@@ -26,6 +26,7 @@ class DeliveredCars
             ->table('salecars as s')
             ->join('tb_brand as b', 'b.id', '=', 's.brand')
             ->leftJoin('tb_carmodels as m', 'm.id', '=', 's.model_id')
+            ->leftJoin('tb_subcarmodels as sm', 'sm.id', '=', 's.subModel_id')
             ->leftJoin('customers as c', 'c.id', '=', 's.CusID')
             ->leftJoin('tb_prefixname as p', 'p.id', '=', 'c.PrefixName')
             ->leftJoin('car_order as o', 'o.id', '=', 's.CarOrderID')
@@ -40,6 +41,8 @@ class DeliveredCars
                 'b.name as brand',
                 'm.id as model_id',
                 'm.Name_TH as model',
+                // รุ่นย่อย — Mitsubishi เก็บรหัสไว้ที่ name ชื่ออ่านได้อยู่ที่ detail ส่วน GWM/Wuling ใช้ name (detail ว่าง)
+                DB::raw("COALESCE(NULLIF(TRIM(sm.detail), ''), NULLIF(TRIM(sm.name), '')) as submodel"),
                 's.DeliveryDate as delivered_at',
                 'p.Name_TH as title',
                 'c.FirstName as first_name',

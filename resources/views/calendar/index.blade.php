@@ -130,10 +130,11 @@
                 }
 
                 // VIN กับวันส่งมอบเป็นช่องไม่บังคับ มีค่อยแสดงบรรทัดนี้
-                if (item.vin || item.delivered) {
+                if (item.model || item.vin || item.delivered) {
                     const car = document.createElement('div');
                     car.className = 'sub';
                     car.textContent = [
+                        item.model,
                         item.vin ? 'VIN ' + item.vin : '',
                         item.delivered ? 'ส่งมอบ ' + item.delivered : '',
                     ].filter(Boolean).join(' · ');

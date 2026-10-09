@@ -230,6 +230,7 @@ class ServiceQueueImporter
             'service_no' => $next['service_no'],
             'model_id' => $done->model_id,
             'model_name' => $done->model_name,
+            'submodel_name' => $done->submodel_name,
         ]);
     }
 
@@ -251,6 +252,7 @@ class ServiceQueueImporter
             'delivered_at' => $car->delivered_at,
             'model_id' => $car->model_id,
             'model_name' => $car->model,
+            'submodel_name' => $car->submodel,
         ];
     }
 

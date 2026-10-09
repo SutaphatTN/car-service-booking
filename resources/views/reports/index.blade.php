@@ -87,7 +87,7 @@
                     <th style="width:190px">วันที่และเวลานัด</th>
                     <th>ชื่อ - นามสกุล</th>
                     <th style="width:140px">เบอร์โทร</th>
-                    <th style="width:170px">เลขตัวถัง VIN</th>
+                    <th style="width:190px">รถ</th>
                     <th style="width:130px">ส่งมอบจริง</th>
                     <th class="right" style="width:120px">เลขไมล์ (กม.)</th>
                     <th style="width:140px">ผู้บันทึก</th>
@@ -112,13 +112,7 @@
                                 'phone2' => $appointment->phone2,
                             ])
                         </td>
-                        <td>
-                            @if ($appointment->vin)
-                                <code class="vin">{{ $appointment->vin }}</code>
-                            @else
-                                <span class="sub">-</span>
-                            @endif
-                        </td>
+                        <td>@include('partials.car-cell')</td>
                         <td class="sub">
                             {{ $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : '-' }}
                         </td>

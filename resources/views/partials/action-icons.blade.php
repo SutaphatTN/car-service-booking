@@ -26,6 +26,10 @@
         <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5"/>
         <path d="M3.5 3.8v4.7h4.7"/>
     </symbol>
+    <symbol id="ic-edit" viewBox="0 0 24 24">
+        <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z"/>
+        <path d="m13.5 8.5 2 2"/>
+    </symbol>
     <symbol id="ic-trash" viewBox="0 0 24 24">
         <path d="M4 6.5h16M9.5 6.5v-2h5v2M17.8 6.5l-.9 13H7.1l-.9-13M10 10.5v5.5M14 10.5v5.5"/>
     </symbol>

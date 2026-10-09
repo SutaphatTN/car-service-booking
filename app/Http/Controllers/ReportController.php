@@ -31,7 +31,7 @@ class ReportController extends Controller
         [$from, $to, $appointments] = $this->report($request);
 
         $rows = [[
-            'วันที่นัด', 'เวลา', 'ชื่อ - นามสกุล', 'เบอร์โทร', 'เบอร์สำรอง', 'รุ่น', 'เลขตัวถัง VIN',
+            'วันที่นัด', 'เวลา', 'ชื่อ - นามสกุล', 'เบอร์โทร', 'เบอร์สำรอง', 'รุ่น', 'รุ่นย่อย', 'เลขตัวถัง VIN',
             'ครั้งที่', 'ส่งมอบจริง', 'เลขไมล์ (กม.)', 'สถานะ', 'หมายเหตุ', 'ผู้บันทึก',
         ]];
 
@@ -43,6 +43,7 @@ class ReportController extends Controller
                 phone_format($appointment->phone),
                 phone_format($appointment->phone2),
                 $appointment->model_name,
+                $appointment->submodel_name,
                 $appointment->vin,
                 $appointment->service_no,
                 $appointment->delivered_at ? thai_date($appointment->delivered_at, short: true) : null,
@@ -58,7 +59,7 @@ class ReportController extends Controller
             : $from->format('Y-m-d').'_'.$to->format('Y-m-d');
 
         return (new XlsxWriter)
-            ->addSheet('นัดหมาย', $rows, [13, 8, 32, 14, 14, 20, 21, 8, 13, 13, 16, 40, 18])
+            ->addSheet('นัดหมาย', $rows, [13, 8, 32, 14, 14, 20, 22, 21, 8, 13, 13, 16, 40, 18])
             ->download('รายงานนัดหมาย_'.$range.'.xlsx');
     }
 

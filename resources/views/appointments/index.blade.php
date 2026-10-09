@@ -5,6 +5,8 @@
 @php
     // ค่าตั้งต้นคือ 'open' จึงไม่ต้องติดไปใน URL ลิงก์จะได้สั้นและเป็นค่ามาตรฐาน
     $keepStatus = $status === 'open' ? [] : ['status' => $status];
+    // ปุ่มแก้ไข — เฉพาะผู้ใช้ใน APPOINTMENT_EDITOR_IDS
+    $canEdit = auth()->user()->canEditAppointments();
     $statusUrl = fn (string $key) => route('appointments.index', array_filter([
         'q' => $search,
         'status' => $key === 'open' ? null : $key,
@@ -33,15 +35,23 @@
         </div>
     </div>
 
-    @if ($errors->any())
-        <div class="alert error">กรอกข้อมูลไม่ครบหรือไม่ถูกต้อง กรุณาตรวจสอบในฟอร์มอีกครั้ง</div>
+    @if ($errors->any() || $errors->edit->any())
+        <div class="alert error">
+            {{ $errors->edit->first('unconfirm') ?: 'กรอกข้อมูลไม่ครบหรือไม่ถูกต้อง กรุณาตรวจสอบในฟอร์มอีกครั้ง' }}
+        </div>
     @endif
 
     <div class="card" style="padding:0;overflow:hidden">
         {{-- งานที่ปิดแล้วถูกซ่อนไว้เป็นค่าตั้งต้น กดดูย้อนหลังได้จากแถบนี้ --}}
         <div class="status-bar">
             @foreach ($statusCounts as $key => $count)
-                <a @class(['chip-link', 'active' => $key === $status]) href="{{ $statusUrl($key) }}">
+                {{-- คั่นกลุ่ม: งานที่ยังเปิดอยู่ | งานที่ปิดแล้ว | ทั้งหมด --}}
+                @if (in_array($key, ['declined', 'all'], true))
+                    <span class="status-sep" aria-hidden="true"></span>
+                @endif
+                <a @class(['chip-link', 'st-'.$key, 'active' => $key === $status, 'is-zero' => $count === 0])
+                   href="{{ $statusUrl($key) }}">
+                    <span class="st-dot" aria-hidden="true"></span>
                     {{ App\Models\Appointment::statusLabel($key) }}
                     <span class="chip-count">{{ baht($count) }}</span>
                 </a>
@@ -107,10 +117,7 @@
                             ])
                         </td>
                         <td>
-                            @if ($appointment->model_name)
-                                <b class="model-name">{{ $appointment->model_name }}</b>
-                            @endif
-                            <div class="sub"><code class="vin">{{ $appointment->vin }}</code></div>
+                            @include('partials.car-cell')
                             @if ($appointment->delivered_at)
                                 <div class="sub">ส่งมอบ {{ thai_date($appointment->delivered_at, short: true) }}</div>
                             @endif
@@ -161,6 +168,13 @@
                                     <button type="button" class="icon-btn act-complete" data-tip="ปิดงานเช็คระยะ"
                                             aria-label="ปิดงานเช็คระยะ" onclick="openComplete({{ $appointment->id }})">
                                         <svg class="ic" aria-hidden="true"><use href="#ic-complete"></use></svg>
+                                    </button>
+                                @endif
+
+                                @if ($canEdit)
+                                    <button type="button" class="icon-btn act-edit" data-tip="แก้ไขนัดหมาย"
+                                            aria-label="แก้ไขนัดหมาย" onclick="openEdit({{ $appointment->id }})">
+                                        <svg class="ic" aria-hidden="true"><use href="#ic-edit"></use></svg>
                                     </button>
                                 @endif
 
@@ -234,6 +248,110 @@
             </div>
         </form>
     </dialog>
+
+    @if ($canEdit)
+        {{--
+            แก้ไขนัดหมาย — ใช้ตอนกดผิด เช่นตั้งใจเลื่อนโทรแต่ไปกดลงเวลานัด
+            คิวจากฝ่ายขายแก้ได้แค่วันเวลา เลขไมล์ หมายเหตุ (ข้อมูลลูกค้า/รถถูกทับจากระบบขายทุกรอบ)
+        --}}
+        <dialog id="editDialog" class="modal">
+            <form method="POST" id="editForm">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="_edit_id" id="editId" value="{{ old('_edit_id') }}">
+
+                <div class="modal-head">
+                    <h2>แก้ไขนัดหมาย</h2>
+                    <button type="button" class="modal-close" onclick="editDialog.close()" aria-label="ปิด">&times;</button>
+                </div>
+
+                <div class="modal-body">
+                    <fieldset id="editCustomer" class="plain">
+                        <div class="grid cols-3">
+                            <label class="field">คำนำหน้า
+                                <select name="title_id" id="editTitle" required>
+                                    <option value="">-- เลือก --</option>
+                                    @foreach ($titles as $title)
+                                        <option value="{{ $title->id }}">{{ $title->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="field">ชื่อ
+                                <input name="first_name" id="editFirst" maxlength="100" required>
+                            </label>
+                            <label class="field">นามสกุล
+                                <input name="last_name" id="editLast" maxlength="100" required>
+                            </label>
+                        </div>
+
+                        <div class="grid cols-2" style="margin-top:12px">
+                            <label class="field">เบอร์โทร
+                                <input name="phone" id="editPhone" inputmode="numeric" maxlength="12" required>
+                            </label>
+                            <label class="field">เบอร์สำรอง <span class="muted">(ไม่บังคับ)</span>
+                                <input name="phone2" id="editPhone2" inputmode="numeric" maxlength="12">
+                            </label>
+                        </div>
+
+                        <div class="grid cols-2" style="margin-top:12px">
+                            <label class="field">เลขตัวถัง VIN
+                                <input name="vin" id="editVin" maxlength="17" class="vin-input" spellcheck="false" required>
+                            </label>
+                            <label class="field">วันที่ส่งมอบจริง <span class="muted">(ไม่บังคับ)</span>
+                                <input type="date" name="delivered_at" id="editDelivered">
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <p class="alert info" id="editFromSales" style="margin:0" hidden>
+                        คิวนี้ดึงมาจากระบบขาย — ชื่อ เบอร์ และข้อมูลรถแก้ที่ระบบขาย ตรงนี้แก้ได้แค่วันเวลานัด เลขไมล์ และหมายเหตุ
+                    </p>
+
+                    <div class="grid cols-3" style="margin-top:12px">
+                        <label class="field">วันที่นัด
+                            <input type="date" name="appointment_date" id="editDate" required>
+                        </label>
+                        <label class="field">เวลานัด
+                            <select name="appointment_time" id="editTime" required>
+                                @foreach ($timeSlots as $group => $slots)
+                                    <optgroup label="{{ $group }}">
+                                        @foreach ($slots as $slot)
+                                            <option value="{{ $slot }}">{{ $slot }} น.</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                        </label>
+                        <label class="field">เลขไมล์ (กม.)
+                            <input name="mileage" id="editMileage" inputmode="numeric" required>
+                        </label>
+                    </div>
+
+                    <label class="field" style="display:block;margin-top:12px">หมายเหตุ <span class="muted">(ไม่บังคับ)</span>
+                        <textarea name="note" id="editNote" rows="3" maxlength="1000"></textarea>
+                    </label>
+
+                    @if ($errors->edit->any() && ! $errors->edit->has('unconfirm'))
+                        <p class="err" style="margin:12px 0 0">{{ $errors->edit->first() }}</p>
+                    @endif
+                </div>
+
+                <div class="modal-foot">
+                    {{-- กดลงเวลานัดผิด — เอาคิวกลับไปรอโทร แล้วไปกดเลื่อนโทรใหม่ที่หน้าต้องโทรหา --}}
+                    <button type="button" class="ghost danger modal-foot-start" id="editUnconfirm" hidden>
+                        ยกเลิกการยืนยันนัด
+                    </button>
+                    <button type="button" class="ghost" onclick="editDialog.close()">ยกเลิก</button>
+                    <button type="submit" class="primary" data-busy="กำลังบันทึก…">บันทึก</button>
+                </div>
+            </form>
+        </dialog>
+
+        <form method="POST" id="unconfirmForm" hidden>
+            @csrf
+            @method('PATCH')
+        </form>
+    @endif
 @endsection
 
 @push('scripts')
@@ -290,5 +408,79 @@
 
         document.getElementById('completeClose').addEventListener('click', () => completeDialog.close());
         document.getElementById('completeCancel').addEventListener('click', () => completeDialog.close());
+
+        @if ($canEdit)
+            @php
+                $editable = $appointments->mapWithKeys(fn ($a) => [$a->id => [
+                    'name' => $a->fullName(),
+                    'url' => route('appointments.update', $a),
+                    'fromSales' => $a->isFromSales(),
+                    // ยกเลิกการยืนยันได้เฉพาะคิวจากฝ่ายขายที่ยืนยันแล้วและยังไม่ปิด
+                    'unconfirmUrl' => $a->isFromSales() && $a->confirmed_at && ! $a->completed_at && ! $a->declined_at
+                        ? route('appointments.unconfirm', $a) : null,
+                    'title_id' => $a->title_id,
+                    'first_name' => $a->first_name,
+                    'last_name' => $a->last_name,
+                    'phone' => phone_format($a->phone),
+                    'phone2' => phone_format($a->phone2),
+                    'vin' => $a->vin,
+                    'delivered_at' => $a->delivered_at?->toDateString(),
+                    'mileage' => $a->mileage,
+                    'appointment_date' => $a->appointment_at->toDateString(),
+                    'appointment_time' => $a->appointment_at->format('H:i'),
+                    'note' => $a->note,
+                ]]);
+            @endphp
+            const editable = @json($editable, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
+            const editDialog = document.getElementById('editDialog');
+
+            // keep = เปิดซ้ำหลังกรอกผิด ใช้ค่าที่พิมพ์ไว้ (old) แทนค่าในฐานข้อมูล
+            window.openEdit = function (id, keep) {
+                const item = editable[id];
+                if (!item) return;
+                const values = keep ? { ...item, ...keep } : item;
+                const set = (elId, value) => document.getElementById(elId).value = value ?? '';
+
+                document.getElementById('editForm').action = item.url;
+                set('editId', id);
+                set('editTitle', values.title_id);
+                set('editFirst', values.first_name);
+                set('editLast', values.last_name);
+                set('editPhone', values.phone);
+                set('editPhone2', values.phone2);
+                set('editVin', values.vin);
+                set('editDelivered', values.delivered_at);
+                set('editDate', values.appointment_date);
+                set('editMileage', values.mileage);
+                set('editNote', values.note);
+
+                // เวลาเดิมอาจไม่อยู่ในช่วงเวลาทำการ — เพิ่มตัวเลือกให้ ไม่งั้นค่าหายตอนบันทึก
+                const time = document.getElementById('editTime');
+                const wanted = values.appointment_time;
+                if (wanted && ![...time.options].some((o) => o.value === wanted)) time.add(new Option(wanted + ' น.', wanted), 0);
+                time.value = wanted;
+
+                // คิวจากฝ่ายขาย: ซ่อนและล็อกข้อมูลลูกค้า/รถ (fieldset ที่ disabled จะไม่ถูกส่งไป)
+                const customer = document.getElementById('editCustomer');
+                customer.disabled = item.fromSales;
+                customer.hidden = item.fromSales;
+                document.getElementById('editFromSales').hidden = !item.fromSales;
+
+                const unconfirm = document.getElementById('editUnconfirm');
+                unconfirm.hidden = !item.unconfirmUrl;
+                unconfirm.onclick = () => {
+                    if (!confirm('ยกเลิกการยืนยันนัดของ ' + item.name + ' ?\nคิวจะกลับไปอยู่ในรายการต้องโทรหา และวันนัดกลับเป็นวันครบกำหนดเดิม')) return;
+                    const form = document.getElementById('unconfirmForm');
+                    form.action = item.unconfirmUrl;
+                    form.submit();
+                };
+
+                editDialog.showModal();
+            };
+
+            @if ($errors->edit->any() && old('_edit_id'))
+                openEdit(@js((int) old('_edit_id')), @js(collect(old())->except(['_token', '_method', '_edit_id'])->all()));
+            @endif
+        @endif
     </script>
 @endpush

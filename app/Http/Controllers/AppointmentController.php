@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAppointmentRequest;
+use App\Http\Requests\UpdateAppointmentRequest;
 use App\Models\Appointment;
+use App\Models\CallLog;
 use App\Models\Title;
 use App\Support\Schedule;
 use App\Support\ServiceQueueImporter;
@@ -115,6 +117,51 @@ class AppointmentController extends Controller
         }
 
         return back()->with('status', $message);
+    }
+
+    /** แก้ไขนัดหมาย — สิทธิ์และช่องที่แก้ได้ตรวจใน UpdateAppointmentRequest */
+    public function update(UpdateAppointmentRequest $request, Appointment $appointment): RedirectResponse
+    {
+        $data = collect($request->validated())
+            ->except(['appointment_date', 'appointment_time'])
+            ->put('appointment_at', $request->appointmentAt())
+            ->all();
+
+        $appointment->update($data);
+
+        return back()->with('status', 'แก้ไขนัดหมายของ '.$appointment->load('title')->fullName().' แล้ว');
+    }
+
+    /**
+     * ยกเลิกการยืนยันนัด — กดลงเวลานัดผิด (เช่นตั้งใจจะกดเลื่อนโทร) เอาคิวกลับไปรอโทรตามเดิม
+     *
+     * วันนัดกลับเป็นวันครบกำหนดเดิมตามตารางเช็คระยะ และผล "ได้นัด" ในรายงานการโทรถูกยกเลิก
+     * ใช้ได้เฉพาะคิวจากฝ่ายขาย — นัดที่คีย์เองไม่เคยอยู่ในรายการต้องโทรหา
+     */
+    public function unconfirm(Request $request, Appointment $appointment): RedirectResponse
+    {
+        abort_unless($request->user()->canEditAppointments(), 403);
+
+        if (! $appointment->isFromSales() || $appointment->confirmed_at === null
+            || $appointment->completed_at !== null || $appointment->declined_at !== null) {
+            return back()->withErrors(
+                ['unconfirm' => 'นัดนี้ยกเลิกการยืนยันไม่ได้ (ต้องเป็นคิวจากฝ่ายขายที่ยืนยันแล้วและยังไม่ปิดงาน)'], 'edit'
+            );
+        }
+
+        // ต้องหาวันครบกำหนดเดิมก่อนล้าง confirmed_at — serviceDueDate() ดูจากสถานะนี้
+        $dueDate = $appointment->serviceDueDate();
+        [$hour, $minute] = explode(':', ServiceQueueImporter::DEFAULT_TIME);
+
+        CallLog::cancelLatest($appointment, ['confirmed']);
+
+        $appointment->update([
+            'confirmed_at' => null,
+            'appointment_at' => $dueDate->copy()->setTime((int) $hour, (int) $minute),
+        ]);
+
+        return back()->with('status', 'ยกเลิกการยืนยันนัดของ '.$appointment->load('title')->fullName()
+            .' แล้ว — คิวกลับไปอยู่ในรายการต้องโทรหา (ครบกำหนด '.thai_date($dueDate, short: true).')');
     }
 
     /** ลบได้เฉพาะ sa (กำหนดไว้ที่ route) */

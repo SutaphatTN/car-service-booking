@@ -44,7 +44,7 @@ class CallReportController extends Controller
         ['from' => $from, 'to' => $to] = $report;
 
         $detail = [[
-            'ครบกำหนดเช็คระยะ', 'ต้องโทร', 'ชื่อลูกค้า', 'เบอร์โทร', 'เบอร์สำรอง', 'รุ่น', 'เลขตัวถัง VIN', 'ครั้งที่',
+            'ครบกำหนดเช็คระยะ', 'ต้องโทร', 'ชื่อลูกค้า', 'เบอร์โทร', 'เบอร์สำรอง', 'รุ่น', 'รุ่นย่อย', 'เลขตัวถัง VIN', 'ครั้งที่',
             'ผลการโทร', 'รายละเอียด',
             // ปิดไว้ก่อน — 'จำนวนครั้งที่โทรในช่วงนี้', 'ลำดับผลการโทร',
             'บันทึกโดย', 'เวลาที่บันทึก',
@@ -61,6 +61,7 @@ class CallReportController extends Controller
                 phone_format($call->phone),
                 phone_format($call->phone2),
                 $call->model_name,
+                $call->submodel_name,
                 $call->vin,
                 $call->service_no,
                 self::RESULT_LABELS[$row['result']],
@@ -89,7 +90,7 @@ class CallReportController extends Controller
             : $from->format('Y-m-d').'_'.$to->format('Y-m-d');
 
         return (new XlsxWriter)
-            ->addSheet('รายการ', $detail, [16, 22, 32, 14, 14, 20, 21, 8, 16, 34, 18, 18])
+            ->addSheet('รายการ', $detail, [16, 22, 32, 14, 14, 20, 22, 21, 8, 16, 34, 18, 18])
             ->addSheet('สรุป', $summary, [20, 12])
             ->addSheet('แยกตามผู้โทร', $byUser, [24, 12, 12, 12, 18, 12])
             ->download('รายงานการโทร_'.$range.'.xlsx');

@@ -63,6 +63,10 @@ Route::middleware('auth')->group(function () {
             ->name('appointments.complete');
 
         Route::post('appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+        // แก้ไข/ยกเลิกการยืนยัน — เฉพาะผู้ใช้ใน APPOINTMENT_EDITOR_IDS (ตรวจใน request/controller)
+        Route::patch('appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
+        Route::patch('appointments/{appointment}/unconfirm', [AppointmentController::class, 'unconfirm'])
+            ->name('appointments.unconfirm');
 
         Route::delete('appointments/{appointment}', [AppointmentController::class, 'destroy'])
             ->middleware('role:sa')
@@ -72,6 +76,8 @@ Route::middleware('auth')->group(function () {
         | ปริมาณงานช่าง — ปฏิทินรายวัน + ลงงาน (สิทธิ์แก้/ลบตรวจใน controller)
         */
         Route::get('work', [TechnicianWorkController::class, 'index'])->name('work.index');
+        Route::get('work/person', [TechnicianWorkController::class, 'person'])->name('work.person');
+        Route::get('work/person/export', [TechnicianWorkController::class, 'personExport'])->name('work.person.export');
         Route::post('work', [TechnicianWorkController::class, 'store'])->name('work.store');
         Route::patch('work/{job}', [TechnicianWorkController::class, 'update'])->name('work.update');
         Route::delete('work/{job}', [TechnicianWorkController::class, 'destroy'])->name('work.destroy');
