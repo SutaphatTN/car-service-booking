@@ -7,10 +7,14 @@ use App\Http\Requests\UpdateAppointmentRequest;
 use App\Models\Appointment;
 use App\Models\CallLog;
 use App\Models\Title;
+use App\Support\CarModels;
+use App\Support\DeliveredCars;
 use App\Support\Schedule;
 use App\Support\ServiceQueueImporter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -58,19 +62,23 @@ class AppointmentController extends Controller
             ]),
             'titles' => Title::active()->get(),
             'timeSlots' => Schedule::timeSlots(),
+            'carModels' => CarModels::forBrand(current_brand()?->name),
         ]);
     }
 
     public function store(StoreAppointmentRequest $request): RedirectResponse
     {
-        $appointment = Appointment::create([
+        if ($queue = $request->chosenQueue()) {
+            return $this->bookQueue($request, $queue);
+        }
+
+        $appointment = Appointment::create($request->carFields() + [
             'title_id' => $request->validated('title_id'),
             'first_name' => $request->validated('first_name'),
             'last_name' => $request->validated('last_name'),
             'phone' => $request->validated('phone'),
             'phone2' => $request->validated('phone2'),
             'vin' => $request->validated('vin'),
-            'delivered_at' => $request->validated('delivered_at'),
             'mileage' => $request->validated('mileage'),
             'appointment_at' => $request->appointmentAt(),
             'note' => $request->validated('note'),
@@ -80,6 +88,78 @@ class AppointmentController extends Controller
         ]);
 
         return back()->with('status', 'บันทึกนัดหมายของ '.$appointment->load('title')->fullName().' แล้ว');
+    }
+
+    /**
+     * ลงนัดในคิวเดิมของรถคันนี้แทนการสร้างนัดใหม่ — ทำเหมือนกดยืนยันนัดในหน้าต้องโทรหา
+     * ปิดงานแล้วระบบจึงสร้างคิวครั้งถัดไปให้ได้ และไม่เหลือคิวเก่าค้างให้โทรซ้ำ
+     *
+     * ชื่อ เบอร์ และข้อมูลรถในคิวเป็นของฝ่ายขาย ไม่เอาที่กรอกในฟอร์มไปทับ
+     */
+    private function bookQueue(StoreAppointmentRequest $request, Appointment $queue): RedirectResponse
+    {
+        $bookedAt = $request->appointmentAt();
+
+        // บันทึกผล "ได้นัด" เฉพาะคิวที่ยังไม่เคยยืนยัน — ยกเลิกการยืนยันต้องใช้หาวันครบกำหนดเดิม
+        if ($queue->confirmed_at === null) {
+            CallLog::record($queue, 'confirmed', ['booked_at' => $bookedAt]);
+        }
+
+        $queue->update([
+            'appointment_at' => $bookedAt,
+            'mileage' => $request->validated('mileage'),
+            'note' => $request->validated('note') ?? $queue->note,
+            'confirmed_at' => now(),
+            'unreachable_at' => null,
+            'recall_at' => null,
+            'unreachable_count' => 0,
+        ]);
+
+        return back()->with('status', 'ลงนัดในคิวเช็คระยะครั้งที่ '.$queue->service_no
+            .' ของ '.$queue->load('title')->fullName().' แล้ว');
+    }
+
+    /**
+     * ค้น VIN ในระบบขายระหว่างกรอกฟอร์ม — เจอแล้วเติมรุ่นให้เอง และบอกว่ามีคิวค้างอยู่ไหม
+     * (ตอนบันทึกจริงตรวจซ้ำฝั่งเซิร์ฟเวอร์อีกรอบ ค่าที่ได้จากตรงนี้ใช้แสดงผลอย่างเดียว)
+     */
+    public function lookupVin(Request $request): JsonResponse
+    {
+        $car = DeliveredCars::findByVin((string) $request->query('vin'), [(string) current_brand()?->name]);
+
+        if ($car === null) {
+            $stock = CarModels::ofStockVin((string) $request->query('vin'), current_brand()?->name);
+
+            return response()->json(['found' => false, 'stock' => $stock ? [
+                'model_id' => $stock->model_id,
+                'model' => $stock->model,
+                'submodel' => $stock->submodel,
+            ] : null]);
+        }
+
+        $queue = Appointment::openQueueOf((int) $car->salecar_id);
+        $title = Title::active()->get()->first(fn (Title $t) => Title::matchKey($t->name) === Title::matchKey($car->title));
+
+        return response()->json([
+            'found' => true,
+            'car' => [
+                'model_id' => $car->model_id,
+                'model' => $car->model,
+                'submodel' => $car->submodel,
+                'delivered_at' => $car->delivered_at ? Carbon::parse($car->delivered_at)->toDateString() : null,
+                'title_id' => $title?->id,
+                'first_name' => trim((string) $car->first_name),
+                'last_name' => trim((string) $car->last_name),
+                'phone' => phone_format(DeliveredCars::normalisePhone($car->phone)),
+                'phone2' => phone_format(DeliveredCars::normalisePhone($car->phone2)),
+            ],
+            'queue' => $queue ? [
+                'id' => $queue->id,
+                'service_no' => $queue->service_no,
+                'due' => thai_date($queue->serviceDueDate(), short: true),
+                'status' => $queue->status(),
+            ] : null,
+        ]);
     }
 
     /**
@@ -123,9 +203,13 @@ class AppointmentController extends Controller
     public function update(UpdateAppointmentRequest $request, Appointment $appointment): RedirectResponse
     {
         $data = collect($request->validated())
-            ->except(['appointment_date', 'appointment_time'])
+            ->except(['appointment_date', 'appointment_time', 'model_id', 'submodel_name'])
             ->put('appointment_at', $request->appointmentAt())
             ->all();
+
+        if (! $appointment->isFromSales()) {
+            $data = $request->carFields() + $data;
+        }
 
         $appointment->update($data);
 

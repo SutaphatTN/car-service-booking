@@ -35,7 +35,7 @@ class ServiceQueueImporter
     {
         $brands = Brand::active()->get()->keyBy(fn (Brand $b) => mb_strtolower($b->name));
         $names = $brandNames ?? $brands->pluck('name')->all();
-        $titles = Title::all()->keyBy(fn (Title $t) => $this->titleKey($t->name));
+        $titles = Title::all()->keyBy(fn (Title $t) => Title::matchKey($t->name));
 
         $source = DeliveredCars::all($names)->keyBy('salecar_id');
         $ours = $this->existingQueues($brands, $names);
@@ -243,7 +243,7 @@ class ServiceQueueImporter
     private function sourceFields(object $car, Collection $titles): array
     {
         return [
-            'title_id' => $titles->get($this->titleKey($car->title))?->id,
+            'title_id' => $titles->get(Title::matchKey($car->title))?->id,
             'first_name' => trim((string) $car->first_name),
             'last_name' => trim((string) $car->last_name),
             'phone' => DeliveredCars::normalisePhone($car->phone),
@@ -262,11 +262,5 @@ class ServiceQueueImporter
         [$hour, $minute] = explode(':', self::DEFAULT_TIME);
 
         return $dueDate->copy()->setTime((int) $hour, (int) $minute);
-    }
-
-    /** จับคู่คำนำหน้าด้วยชื่อ ตัดช่องว่างและจุดออกกันคลาดเคลื่อน เช่น "Mr." กับ "Mr" */
-    private function titleKey(?string $name): string
-    {
-        return mb_strtolower(str_replace([' ', '.', "\u{00A0}"], '', (string) $name));
     }
 }

@@ -31,6 +31,19 @@ class UpdateAppointmentRequest extends StoreAppointmentRequest
             ]));
         }
 
+        // คิวเดิมถามเฉพาะตอนเพิ่มนัด — แก้นัดที่มีอยู่แล้วไม่ย้ายไปคิวอื่น
+        unset($rules['use_queue']);
+
         return $rules;
+    }
+
+    protected function checksCar(): bool
+    {
+        return ! $this->route('appointment')->isFromSales();
+    }
+
+    protected function asksAboutQueue(): bool
+    {
+        return false;
     }
 }

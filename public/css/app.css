@@ -201,6 +201,9 @@ input[type="checkbox"], input[type="radio"] { width: auto; margin: 0; }
 .hint-inline { display: block; margin-top: 5px; font-size: 12px; font-weight: 400; color: var(--muted); }
 input[readonly] { background: #f6f7fb; color: var(--ink-soft); cursor: default; }
 input[readonly]:hover, input[readonly]:focus { border-color: var(--line); box-shadow: none; }
+/* รุ่นรถที่ดึงจากระบบขายแล้ว — ล็อกไว้ ให้เห็นค่าแต่แก้ไม่ได้ */
+select:disabled { background: #f6f7fb; color: var(--ink-soft); cursor: default; opacity: 1; }
+select:disabled:hover { border-color: var(--line); }
 .input-reveal { display: flex; gap: 8px; margin-top: 6px; }
 .input-reveal input { margin-top: 0; font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; }
 .input-reveal button { flex: none; min-width: 76px; }

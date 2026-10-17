@@ -66,6 +66,21 @@ class Appointment extends Model
         return $this->salecar_id !== null;
     }
 
+    /**
+     * คิวจากฝ่ายขายของรถคันนี้ที่ยังไม่ปิด — ถ้ามีหลายครั้งเอาครั้งล่าสุด
+     *
+     * ใช้ตอนเจ้าหน้าที่คีย์นัดเองให้รถที่มีคิวอยู่แล้ว (เช่นวิ่งครบระยะก่อนถึงวันครบกำหนด)
+     * จะได้ลงนัดในคิวเดิมแทนการสร้างนัดซ้อน
+     */
+    public static function openQueueOf(int $salecarId): ?self
+    {
+        return self::where('salecar_id', $salecarId)
+            ->whereNull('completed_at')
+            ->whereNull('declined_at')
+            ->orderByDesc('service_no')
+            ->first();
+    }
+
     /** ยังต้องโทรหาลูกค้าเพื่อยืนยันวันเวลา */
     public function needsCall(): bool
     {

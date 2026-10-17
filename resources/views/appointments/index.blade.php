@@ -301,6 +301,20 @@
                                 <input type="date" name="delivered_at" id="editDelivered">
                             </label>
                         </div>
+
+                        <div class="grid cols-2" style="margin-top:12px">
+                            <label class="field">รุ่นหลัก
+                                <select name="model_id" id="editModel">
+                                    <option value="">-- เลือก --</option>
+                                </select>
+                                <span class="hint-inline" id="editVinStatus"></span>
+                            </label>
+                            <label class="field">รุ่นย่อย <span class="muted">(ไม่บังคับ)</span>
+                                <select name="submodel_name" id="editSubmodel">
+                                    <option value="">-- เลือก --</option>
+                                </select>
+                            </label>
+                        </div>
                     </fieldset>
 
                     <p class="alert info" id="editFromSales" style="margin:0" hidden>
@@ -425,6 +439,9 @@
                     'phone2' => phone_format($a->phone2),
                     'vin' => $a->vin,
                     'delivered_at' => $a->delivered_at?->toDateString(),
+                    'model_id' => $a->model_id,
+                    'model_name' => $a->model_name,
+                    'submodel_name' => $a->submodel_name,
                     'mileage' => $a->mileage,
                     'appointment_date' => $a->appointment_at->toDateString(),
                     'appointment_time' => $a->appointment_at->format('H:i'),
@@ -433,6 +450,12 @@
             @endphp
             const editable = @json($editable, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
             const editDialog = document.getElementById('editDialog');
+            const editPicker = makeCarPicker({
+                vin: document.getElementById('editVin'),
+                model: document.getElementById('editModel'),
+                submodel: document.getElementById('editSubmodel'),
+                hint: document.getElementById('editVinStatus'),
+            });
 
             // keep = เปิดซ้ำหลังกรอกผิด ใช้ค่าที่พิมพ์ไว้ (old) แทนค่าในฐานข้อมูล
             window.openEdit = function (id, keep) {
@@ -453,6 +476,11 @@
                 set('editDate', values.appointment_date);
                 set('editMileage', values.mileage);
                 set('editNote', values.note);
+
+                // นัดที่คีย์เอง: แสดงรุ่นที่บันทึกไว้ แล้วค้น VIN อีกรอบ (เจอในระบบขายจะล็อกรุ่นไว้)
+                editPicker.reset();
+                editPicker.select(values.model_id, item.model_name, values.submodel_name);
+                if (!item.fromSales) editPicker.lookup();
 
                 // เวลาเดิมอาจไม่อยู่ในช่วงเวลาทำการ — เพิ่มตัวเลือกให้ ไม่งั้นค่าหายตอนบันทึก
                 const time = document.getElementById('editTime');

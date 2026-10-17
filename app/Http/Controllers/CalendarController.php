@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Title;
+use App\Support\CarModels;
 use App\Support\Schedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -55,6 +56,7 @@ class CalendarController extends Controller
             'selectedDate' => $filters['date'] ?? $this->defaultSelectedDate($month),
             'titles' => Title::active()->get(),
             'timeSlots' => Schedule::timeSlots(),
+            'carModels' => CarModels::forBrand(current_brand()?->name),
         ]);
     }
 

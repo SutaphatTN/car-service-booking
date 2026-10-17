@@ -63,6 +63,9 @@ Route::middleware('auth')->group(function () {
             ->name('appointments.complete');
 
         Route::post('appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+        // ค้น VIN ในระบบขายระหว่างกรอกฟอร์ม — เติมรุ่นให้เอง และบอกว่ามีคิวค้างอยู่ไหม
+        Route::get('appointments/vin-lookup', [AppointmentController::class, 'lookupVin'])
+            ->name('appointments.vin-lookup');
         // แก้ไข/ยกเลิกการยืนยัน — เฉพาะผู้ใช้ใน APPOINTMENT_EDITOR_IDS (ตรวจใน request/controller)
         Route::patch('appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
         Route::patch('appointments/{appointment}/unconfirm', [AppointmentController::class, 'unconfirm'])

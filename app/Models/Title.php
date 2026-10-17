@@ -28,4 +28,10 @@ class Title extends Model
     {
         return $query->where('is_active', true)->orderBy('sort_order')->orderBy('id');
     }
+
+    /** จับคู่คำนำหน้าด้วยชื่อ ตัดช่องว่างและจุดออกกันคลาดเคลื่อน เช่น "Mr." กับ "Mr" */
+    public static function matchKey(?string $name): string
+    {
+        return mb_strtolower(str_replace([' ', '.', "\u{00A0}"], '', (string) $name));
+    }
 }

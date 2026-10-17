@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,34 @@ class DeliveredCars
      * @return Collection<int, object>
      */
     public static function all(array $brands): Collection
+    {
+        return self::query($brands)->orderBy('s.DeliveryDate')->get();
+    }
+
+    /**
+     * รถคันที่ VIN ตรงกัน — ใช้เติมรุ่นให้นัดที่เจ้าหน้าที่คีย์เอง
+     *
+     * VIN ฝั่งขายมีเว้นวรรคปน จึงตัดออกก่อนเทียบ ถ้าเจอหลายใบ (ไม่ควรมีหลังกรองใบที่ลบแล้ว)
+     * เอาใบที่ส่งมอบล่าสุด
+     *
+     * @param  list<string>  $brands
+     */
+    public static function findByVin(?string $vin, array $brands): ?object
+    {
+        $vin = self::normaliseVin($vin);
+
+        if ($vin === null) {
+            return null;
+        }
+
+        return self::query($brands)
+            ->whereRaw("UPPER(REPLACE(o.vin_number, ' ', '')) = ?", [$vin])
+            ->orderByDesc('s.DeliveryDate')
+            ->first();
+    }
+
+    /** @param  list<string>  $brands */
+    private static function query(array $brands): Builder
     {
         return DB::connection('sales')
             ->table('salecars as s')
@@ -50,9 +79,7 @@ class DeliveredCars
                 'c.Mobilephone1 as phone',
                 'c.Mobilephone2 as phone2',
                 'o.vin_number as vin',
-            ])
-            ->orderBy('s.DeliveryDate')
-            ->get();
+            ]);
     }
 
     /**
