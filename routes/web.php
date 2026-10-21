@@ -80,6 +80,7 @@ Route::middleware('auth')->group(function () {
         */
         Route::get('work', [TechnicianWorkController::class, 'index'])->name('work.index');
         Route::get('work/person', [TechnicianWorkController::class, 'person'])->name('work.person');
+        Route::get('work/export', [TechnicianWorkController::class, 'export'])->name('work.export');
         Route::get('work/person/export', [TechnicianWorkController::class, 'personExport'])->name('work.person.export');
         Route::post('work', [TechnicianWorkController::class, 'store'])->name('work.store');
         Route::patch('work/{job}', [TechnicianWorkController::class, 'update'])->name('work.update');

@@ -976,7 +976,7 @@ body.page-login main.wrap { padding-top: 0; padding-bottom: 40px; }
 
 /* เส้นแบ่งทุกชั่วโมง — วาดด้วยพื้นหลัง ไม่ต้องมีแท็กเพิ่มทีละเส้น */
 .work-track {
-  position: relative; min-height: 62px;
+  position: relative; min-height: 76px;
   background-image: linear-gradient(to right, var(--line-soft) 1px, transparent 1px);
   background-size: calc(100% / var(--hours)) 100%;
 }
@@ -1002,7 +1002,14 @@ body.page-login main.wrap { padding-top: 0; padding-bottom: 40px; }
 }
 .job:hover { filter: brightness(.97); box-shadow: 0 0 0 1px #fff, 0 3px 10px -4px rgba(16, 24, 40, .35); }
 .job b { color: var(--job); font-size: 12px; }
-.job b, .job span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job b, .job span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+/* หมายเหตุยาวได้ — โชว์บรรทัดเดียวพอ ที่เหลือดูจาก tooltip หรือกดเปิดงาน */
+.job .job-note { color: var(--muted); }
+
+/* สรุปงานทุกช่างตามช่วงวันที่ (หน้ารายวัน) */
+.work-summary { border: 1px solid var(--line-soft); }
+.work-summary th, .work-summary td { padding: 10px 14px; }
+.work-summary tfoot td { background: #fafbfd; border-top: 1px solid var(--line); border-bottom: 0; }
 
 /* ฟอร์มลงงาน */
 fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }

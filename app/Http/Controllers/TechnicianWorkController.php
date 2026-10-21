@@ -52,8 +52,14 @@ class TechnicianWorkController extends Controller
         $canAdd = $this->canAddOn($request, $date);
         $byTechnician = $jobs->groupBy('technician_id');
 
+        // สรุปทุกช่างตามช่วงวันที่ (แยกจากวันที่ดูบนตาราง) — ค่าตั้งต้นสัปดาห์นี้
+        [$from, $to] = $this->range($request);
+
         return view('work.index', $this->shared($request, $jobs) + [
             'date' => $date,
+            'from' => $from,
+            'to' => $to,
+            'report' => $this->summaryByTechnician($this->jobsBetween($from, $to)),
             'technicians' => $technicians,
             'rows' => $technicians->map(fn (Technician $technician) => [
                 'label' => $technician->name,
@@ -151,6 +157,52 @@ class TechnicianWorkController extends Controller
             ->download('งานช่าง_'.$technician->name.'_'.$from->format('Y-m-d').'_'.$to->format('Y-m-d').'.xlsx');
     }
 
+    /** ดาวน์โหลดงานของช่างทุกคนในช่วงวันที่เป็น Excel — รายการทุกงาน + สรุปรายช่าง */
+    public function export(Request $request): BinaryFileResponse
+    {
+        [$from, $to] = $this->range($request);
+
+        $jobs = $this->jobsBetween($from, $to);
+
+        $rows = [['วันที่', 'ช่าง', 'เริ่ม', 'เสร็จ', 'ชั่วโมง', 'ประเภทงาน', 'ป้ายทะเบียน', 'หมายเหตุ', 'ผู้บันทึก']];
+        foreach ($jobs as $job) {
+            $rows[] = [
+                thai_date($job->work_date, short: true),
+                $job->technician->name,
+                $job->startLabel(),
+                $job->endLabel(),
+                round($job->durationMinutes() / 60, 2),
+                $job->job_type,
+                $job->license_plate,
+                $job->note,
+                $job->creator?->name,
+            ];
+        }
+
+        $report = $this->summaryByTechnician($jobs);
+
+        $summary = [['ช่าง', ...TechnicianJob::TYPES, 'จำนวนงาน', 'ชั่วโมงรวม']];
+        foreach ($report as $row) {
+            $summary[] = [
+                $row['technician']->name.($row['technician']->trashed() ? ' (ลบออกแล้ว)' : ''),
+                ...$row['types']->values()->all(),
+                $row['jobs'],
+                round($row['minutes'] / 60, 2),
+            ];
+        }
+        $summary[] = [
+            'รวม',
+            ...collect(TechnicianJob::TYPES)->map(fn (string $type) => $jobs->where('job_type', $type)->count())->all(),
+            $jobs->count(),
+            round($jobs->sum(fn ($job) => $job->durationMinutes()) / 60, 2),
+        ];
+
+        return (new XlsxWriter)
+            ->addSheet('รายการ', $rows, [13, 20, 8, 8, 9, 11, 22, 50, 18])
+            ->addSheet('สรุปรายช่าง', $summary, [24, 8, 8, 8, 8, 12, 12])
+            ->download('งานช่าง_ทุกคน_'.$from->format('Y-m-d').'_'.$to->format('Y-m-d').'.xlsx');
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $job = TechnicianJob::create($this->validated($request) + ['created_by' => $request->user()->id]);
@@ -216,21 +268,8 @@ class TechnicianWorkController extends Controller
      */
     private function personFilters(Request $request, bool $limit = true): array
     {
-        $filters = $request->validate([
-            'technician' => ['nullable', 'integer'],
-            'from' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-31'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-31'],
-        ], [
-            'from.*' => 'รูปแบบวันที่เริ่มต้นไม่ถูกต้อง',
-            'to.*' => 'รูปแบบวันที่สิ้นสุดไม่ถูกต้อง',
-        ]);
-
-        $from = Carbon::parse($filters['from'] ?? today()->startOfWeek()->toDateString())->startOfDay();
-        $to = Carbon::parse($filters['to'] ?? today()->endOfWeek()->toDateString())->startOfDay();
-
-        if ($to->lt($from)) {
-            [$from, $to] = [$to, $from];
-        }
+        $filters = $request->validate(['technician' => ['nullable', 'integer']]);
+        [$from, $to] = $this->range($request);
 
         // เลือกช่วงยาวเกินบนหน้าจอ — ตัดให้เหลือ MAX_RANGE_DAYS วันแรก (Excel ไม่จำกัด)
         $clipped = $limit && $from->diffInDays($to) >= self::MAX_RANGE_DAYS;
@@ -244,6 +283,64 @@ class TechnicianWorkController extends Controller
             : Technician::ordered()->first();
 
         return [$technician, $from, $to, $clipped];
+    }
+
+    /**
+     * ช่วงวันที่ from–to — ค่าตั้งต้นคือสัปดาห์นี้ (จันทร์–อาทิตย์) เลือกกลับด้านมาก็สลับให้
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function range(Request $request): array
+    {
+        $filters = $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-31'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-31'],
+        ], [
+            'from.*' => 'รูปแบบวันที่เริ่มต้นไม่ถูกต้อง',
+            'to.*' => 'รูปแบบวันที่สิ้นสุดไม่ถูกต้อง',
+        ]);
+
+        $from = Carbon::parse($filters['from'] ?? today()->startOfWeek()->toDateString())->startOfDay();
+        $to = Carbon::parse($filters['to'] ?? today()->endOfWeek()->toDateString())->startOfDay();
+
+        return $to->lt($from) ? [$to, $from] : [$from, $to];
+    }
+
+    /** งานของช่างทุกคนในช่วงวันที่ @return Collection<int, TechnicianJob> */
+    private function jobsBetween(Carbon $from, Carbon $to): Collection
+    {
+        return TechnicianJob::with(['technician', 'creator'])
+            ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+            ->orderBy('work_date')->orderBy('start_time')->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * สรุปงานรายช่าง — ช่างที่ยังอยู่ทุกคน (ไม่มีงานก็แสดง 0 ให้เห็นว่าว่าง)
+     * + ช่างที่ลบไปแล้วแต่มีงานในช่วงนั้น
+     *
+     * @param  Collection<int, TechnicianJob>  $jobs
+     * @return Collection<int, array{technician: Technician, types: Collection<string, int>, jobs: int, minutes: int}>
+     */
+    private function summaryByTechnician(Collection $jobs): Collection
+    {
+        $byTechnician = $jobs->groupBy('technician_id');
+
+        return Technician::ordered()->get()
+            ->concat($jobs->pluck('technician')->filter(fn (Technician $t) => $t->trashed())->unique('id'))
+            ->values()
+            ->map(function (Technician $technician) use ($byTechnician) {
+                $mine = $byTechnician->get($technician->id, collect());
+
+                return [
+                    'technician' => $technician,
+                    'types' => collect(TechnicianJob::TYPES)->mapWithKeys(
+                        fn (string $type) => [$type => $mine->where('job_type', $type)->count()]
+                    ),
+                    'jobs' => $mine->count(),
+                    'minutes' => (int) $mine->sum(fn ($job) => $job->durationMinutes()),
+                ];
+            });
     }
 
     /** @return Collection<int, TechnicianJob> */
@@ -303,7 +400,7 @@ class TechnicianWorkController extends Controller
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'job_type' => ['required', Rule::in(TechnicianJob::TYPES)],
-            'license_plate' => ['nullable', 'string', 'max:20'],
+            'license_plate' => ['nullable', 'string', 'max:50'],
             'note' => ['nullable', 'string', 'max:1000'],
         ], [
             'technician_id.required' => 'กรุณาเลือกช่าง',
@@ -316,7 +413,7 @@ class TechnicianWorkController extends Controller
             'end_time.date_format' => 'กรุณาเลือกเวลาเสร็จ',
             'end_time.after' => 'เวลาเสร็จต้องหลังเวลาเริ่ม',
             'job_type.*' => 'กรุณาเลือกประเภทงาน',
-            'license_plate.max' => 'ป้ายทะเบียนยาวเกิน 20 ตัวอักษร',
+            'license_plate.max' => 'ป้ายทะเบียนยาวเกิน 50 ตัวอักษร',
             'note.max' => 'หมายเหตุยาวเกิน 1,000 ตัวอักษร',
         ]);
 

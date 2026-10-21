@@ -96,8 +96,8 @@
 
                     <div class="grid cols-2" style="margin-top:12px">
                         <label class="field">ป้ายทะเบียน <span class="muted">(ไม่บังคับ)</span>
-                            <input name="license_plate" id="jobPlate" maxlength="20" autocomplete="off"
-                                   value="{{ old('license_plate') }}" placeholder="กข 1234 กระบี่"
+                            <input name="license_plate" id="jobPlate" maxlength="50" autocomplete="off"
+                                   value="{{ old('license_plate') }}" placeholder="กข 1234 พระนครศรีอยุธยา"
                                    class="@error('license_plate') is-invalid @enderror">
                             @error('license_plate') <span class="err">{{ $message }}</span> @enderror
                         </label>

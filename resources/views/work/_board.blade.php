@@ -54,6 +54,9 @@
                             @if ($job->license_plate)
                                 <span>{{ $job->license_plate }}</span>
                             @endif
+                            @if ($job->note)
+                                <span class="job-note">{{ $job->note }}</span>
+                            @endif
                         </button>
                     @endforeach
                 </div>
