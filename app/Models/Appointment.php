@@ -18,7 +18,7 @@ class Appointment extends Model
     protected $fillable = [
         'brand_id', 'title_id', 'first_name', 'last_name', 'phone', 'phone2', 'vin', 'delivered_at',
         'mileage', 'appointment_at', 'note', 'created_by',
-        'salecar_id', 'service_no', 'model_id', 'model_name', 'submodel_name', 'confirmed_at', 'completed_at', 'source_missing_at',
+        'salecar_id', 'service_no', 'model_id', 'model_name', 'submodel_name', 'confirmed_at', 'completed_at', 'serviced_at', 'source_missing_at',
         'unreachable_at', 'recall_reason', 'recall_at', 'unreachable_count',
         'declined_at', 'declined_reason', 'declined_note',
     ];
@@ -50,6 +50,7 @@ class Appointment extends Model
             'delivered_at' => 'date',
             'confirmed_at' => 'datetime',
             'completed_at' => 'datetime',
+            'serviced_at' => 'date',
             'source_missing_at' => 'datetime',
             'unreachable_at' => 'datetime',
             'recall_at' => 'date',
@@ -111,6 +112,17 @@ class Appointment extends Model
     public function isDeclined(): bool
     {
         return $this->declined_at !== null && $this->completed_at === null;
+    }
+
+    /**
+     * ปิดงานเช็คระยะได้แล้ว — ยังไม่ปิดคิว และถึงวันนัดแล้ว (นับทั้งวันเหมือนสถานะ overdue)
+     * กันกดปิดงานล่วงหน้าก่อนรถเข้าจริง ซึ่งจะทำให้วันนัดในรายงานไม่ตรงกับวันที่รถเข้า
+     */
+    public function canComplete(): bool
+    {
+        return $this->completed_at === null
+            && $this->declined_at === null
+            && $this->appointment_at->lte(now()->endOfDay());
     }
 
     /** ชื่อเหตุผลที่ปฏิเสธสำหรับแสดงบนหน้าจอ */

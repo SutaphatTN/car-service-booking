@@ -503,6 +503,8 @@ dialog.modal::backdrop { background: rgba(12, 20, 38, .48); backdrop-filter: blu
 /* ปุ่มที่ต้องอยู่ซ้ายสุดของแถบปุ่มท้าย modal (เช่น "ล้างสถานะนี้") */
 .modal-foot-start { margin-inline-end: auto; }
 .modal-foot-start[hidden] { display: none; }
+/* หน้าแก้ไขประวัตินัดหมาย — ช่องของสถานะปิดคิวที่ไม่ได้เลือก (.grid ทับ hidden ของเบราว์เซอร์) */
+.close-fields[hidden] { display: none; }
 
 .error-page { max-width: 540px; padding-top: 72px; text-align: center; }
 .error-page .card { padding: 36px 28px; }
@@ -658,7 +660,8 @@ tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 }
 .icon-btn:hover { background: var(--act-dark); box-shadow: 0 2px 4px rgba(16, 24, 40, .14); }
 .icon-btn:active { transform: translateY(1px); box-shadow: var(--shadow-sm); }
-.icon-btn:disabled:hover { background: var(--act); }
+.icon-btn:disabled:hover { background: var(--act); box-shadow: var(--shadow-sm); }
+.icon-btn:disabled { opacity: .35; filter: grayscale(.4); }
 
 /* นัดได้ = งานที่อยากให้จบแบบนี้ ใช้สีหลัก · เลื่อนโทร = ยังไม่จบ สีเหลืองเตือน · ไม่เข้าเช็ค = ปิดคิว สีแดง */
 .icon-btn.act-book     { --act: #2563eb; --act-dark: #1d4ed8; }

@@ -165,23 +165,40 @@ class AppointmentController extends Controller
     /**
      * รถเข้าศูนย์แล้วเช็คระยะเสร็จ — ปิดงาน บันทึกเลขไมล์จริง
      * แล้วระบบสร้างคิวเช็คระยะครั้งถัดไปให้เองจากตารางของรุ่นนั้น
+     *
+     * เก็บสองวัน: completed_at = เวลาที่กดปิดงานจริง, serviced_at = วันที่รถเข้าที่ผู้ใช้เลือก
+     * (กดปิดช้า/ปิดย้อนหลังได้) คิวครั้งถัดไปนับจาก serviced_at
      */
     public function complete(Request $request, Appointment $appointment, ServiceQueueImporter $importer): RedirectResponse
     {
         $data = $request->validate([
             'mileage' => ['required', 'integer', 'min:0', 'max:9999999'],
+            'serviced_date' => [
+                'required', 'date_format:Y-m-d', 'before_or_equal:today',
+                'after_or_equal:'.$appointment->appointment_at->toDateString(),
+            ],
         ], [
             'mileage.required' => 'กรุณากรอกเลขไมล์ที่วัดได้',
             'mileage.integer' => 'เลขไมล์ต้องเป็นตัวเลข',
+            'serviced_date.required' => 'กรุณาเลือกวันที่รถเข้าเช็คจริง',
+            'serviced_date.date_format' => 'รูปแบบวันที่รถเข้าไม่ถูกต้อง',
+            'serviced_date.before_or_equal' => 'วันที่รถเข้าต้องไม่เกินวันนี้',
+            'serviced_date.after_or_equal' => 'วันที่รถเข้าต้องไม่ก่อนวันนัด หากลูกค้าเข้าก่อนให้แก้วันนัดก่อน',
         ]);
 
         if ($appointment->completed_at !== null) {
             return back()->with('status', 'นัดนี้ปิดงานไปแล้ว');
         }
 
+        if (! $appointment->canComplete()) {
+            return back()->with('status', 'ยังไม่ถึงวันนัดของ '.$appointment->fullName()
+                .' — ปิดงานได้ตั้งแต่ '.thai_date($appointment->appointment_at, short: true).' หากลูกค้าเข้าก่อนให้แก้วันนัดก่อน');
+        }
+
         $appointment->update([
             'mileage' => $data['mileage'],
             'completed_at' => now(),
+            'serviced_at' => $data['serviced_date'],
             'confirmed_at' => $appointment->confirmed_at ?? now(),
         ]);
 

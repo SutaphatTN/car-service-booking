@@ -100,6 +100,9 @@
             <a href="{{ route('calendar.index') }}" @class(['active' => request()->routeIs('calendar.*')])>ปฏิทิน</a>
             <a href="{{ route('calls.index') }}" @class(['active' => request()->routeIs('calls.*')])>ต้องโทรหา</a>
             <a href="{{ route('reports.index') }}" @class(['active' => request()->routeIs('reports.*')])>รายงาน</a>
+            @if (auth()->user()->hasRole('admin'))
+                <a href="{{ route('history.index') }}" @class(['active' => request()->routeIs('history.*')])>ประวัตินัดหมาย</a>
+            @endif
             <button type="button" id="workMenuBtn" aria-expanded="false" aria-haspopup="true"
                     @class(['nav-drop-btn', 'active' => request()->routeIs('work.*', 'technicians.*')])>
                 ปริมาณงานช่าง <span class="caret" aria-hidden="true"></span>

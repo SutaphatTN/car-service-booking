@@ -37,7 +37,8 @@
 
     @if ($errors->any() || $errors->edit->any())
         <div class="alert error">
-            {{ $errors->edit->first('unconfirm') ?: 'กรอกข้อมูลไม่ครบหรือไม่ถูกต้อง กรุณาตรวจสอบในฟอร์มอีกครั้ง' }}
+            {{-- วันที่รถเข้ามาจากป็อปอัปปิดงาน ซึ่งปิดไปแล้วตอนโหลดหน้าใหม่ จึงต้องบอกเหตุผลตรง ๆ ตรงนี้ --}}
+            {{ $errors->edit->first('unconfirm') ?: $errors->first('serviced_date') ?: 'กรอกข้อมูลไม่ครบหรือไม่ถูกต้อง กรุณาตรวจสอบในฟอร์มอีกครั้ง' }}
         </div>
     @endif
 
@@ -164,9 +165,16 @@
                                             <svg class="ic" aria-hidden="true"><use href="#ic-restore"></use></svg>
                                         </button>
                                     </form>
-                                @elseif ($appointment->completed_at === null)
+                                @elseif ($appointment->canComplete())
                                     <button type="button" class="icon-btn act-complete" data-tip="ปิดงานเช็คระยะ"
                                             aria-label="ปิดงานเช็คระยะ" onclick="openComplete({{ $appointment->id }})">
+                                        <svg class="ic" aria-hidden="true"><use href="#ic-complete"></use></svg>
+                                    </button>
+                                @elseif ($appointment->completed_at === null)
+                                    {{-- ยังไม่ถึงวันนัด — โชว์ปุ่มจาง ๆ ไว้ให้รู้ว่ามี แต่กดไม่ได้จนกว่าจะถึงวัน --}}
+                                    <button type="button" class="icon-btn act-complete" disabled
+                                            data-tip="ปิดงานได้ตั้งแต่ {{ thai_date($appointment->appointment_at, short: true) }}"
+                                            aria-label="ยังไม่ถึงวันนัด ปิดงานไม่ได้">
                                         <svg class="ic" aria-hidden="true"><use href="#ic-complete"></use></svg>
                                     </button>
                                 @endif
@@ -237,6 +245,12 @@
                 <label class="field">เลขไมล์ที่วัดได้ (กม.)
                     <input name="mileage" id="completeMileage" inputmode="numeric" placeholder="5200" required autofocus>
                     <span class="hint-inline">เลขไมล์จริงบนหน้าปัดตอนรถเข้าศูนย์</span>
+                </label>
+
+                {{-- กดปิดงานช้ากว่าวันที่รถเข้าจริงได้ — ให้เลือกวันที่เข้าจริง คิวครั้งหน้านับจากวันนี้ --}}
+                <label class="field" style="margin-top:12px">วันที่รถเข้าเช็คจริง
+                    <input type="date" name="serviced_date" id="completeDate" required>
+                    <span class="hint-inline">ปิดงานย้อนหลังได้ เลือกได้ตั้งแต่วันนัดจนถึงวันนี้</span>
                 </label>
 
                 <div class="alert info" style="margin-top:14px" id="completeNote"></div>
@@ -371,28 +385,26 @@
 @push('scripts')
     <script>
         @php
-            // ปิดงานวันนี้แล้วคิวครั้งหน้าจะครบกำหนดวันไหน — คิดแบบเดียวกับ ServiceQueueImporter::createNextFor()
-            $nextQueueNote = function ($a) {
+            // คิวครั้งหน้าห่างจากวันที่รถเข้ากี่เดือน — null = ไม่มีคิวถัดไป
+            // วันครบกำหนดจริงคิดใน JS ตามวันที่เลือก แบบเดียวกับ ServiceQueueImporter::createNextFor()
+            $nextQueue = function ($a) {
                 if (! $a->isFromSales() || $a->delivered_at === null) {
-                    return 'นัดนี้คีย์เอง ไม่ได้อยู่ในตารางเช็คระยะ จึงไม่มีคิวถัดไป';
+                    return ['months' => null, 'none' => 'นัดนี้คีย์เอง ไม่ได้อยู่ในตารางเช็คระยะ จึงไม่มีคิวถัดไป'];
                 }
 
-                $next = App\Support\ServiceSchedule::nextAfterService(
-                    $a->brand?->name ?? '', $a->model_id, now(), (int) $a->service_no
-                );
+                $months = App\Support\ServiceSchedule::intervalAfter($a->brand?->name ?? '', $a->model_id, (int) $a->service_no);
 
-                return $next
-                    ? 'ปิดงานแล้วระบบจะสร้างคิวครั้งที่ '.$next['service_no'].' ให้อัตโนมัติ — ครบกำหนด '
-                        .thai_date($next['due_date'], short: true).' (อีก '.$next['months'].' เดือนนับจากวันนี้)'
-                    : 'ครบตารางเช็คระยะของรุ่นนี้แล้ว ปิดงานนี้แล้วไม่มีคิวถัดไป';
+                return $months === null
+                    ? ['months' => null, 'none' => 'ครบตารางเช็คระยะของรุ่นนี้แล้ว ปิดงานนี้แล้วไม่มีคิวถัดไป']
+                    : ['months' => $months, 'serviceNo' => (int) $a->service_no + 1];
             };
 
-            $completable = $appointments->filter(fn ($a) => $a->completed_at === null)
+            $completable = $appointments->filter(fn ($a) => $a->canComplete())
                 ->mapWithKeys(fn ($a) => [$a->id => [
                     'name' => $a->fullName(),
                     'url' => route('appointments.complete', $a),
-                    // ครั้งถัดไปนับจากวันที่ปิดงาน จึงบอกวันจริงไปเลยตั้งแต่ก่อนกด ไม่ต้องเดา
-                    'next' => $nextQueueNote($a),
+                    'minDate' => $a->appointment_at->toDateString(),
+                    'next' => $nextQueue($a),
                 ]]);
         @endphp
         const completable = @json($completable, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
@@ -408,14 +420,53 @@
         const completeDialog = document.getElementById('completeDialog');
         const completeForm = document.getElementById('completeForm');
 
+        const completeDate = document.getElementById('completeDate');
+        const completeNote = document.getElementById('completeNote');
+        const thaiMonthsShort = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        let completing = null;
+
+        // วันที่ตามเวลาเครื่อง ไม่ใช่ UTC — toISOString() เช้ามืดจะได้วันของเมื่อวาน
+        const isoDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+        // เหมือน Carbon::addMonthsNoOverflow() — 31 ส.ค. + 6 เดือน = 28/29 ก.พ. ไม่ล้นไป มี.ค.
+        function addMonthsNoOverflow(iso, months) {
+            const [y, m, d] = iso.split('-').map(Number);
+            const lastDay = new Date(y, m - 1 + months + 1, 0).getDate();
+            return new Date(y, m - 1 + months, Math.min(d, lastDay));
+        }
+
+        function renderCompleteNote() {
+            const next = completing.next;
+            if (next.months === null) {
+                completeNote.textContent = next.none;
+                return;
+            }
+            if (!completeDate.value) {
+                completeNote.textContent = 'เลือกวันที่รถเข้าเช็คจริง เพื่อคำนวณคิวครั้งที่ ' + next.serviceNo;
+                return;
+            }
+            const due = addMonthsNoOverflow(completeDate.value, next.months);
+            completeNote.textContent = 'ปิดงานแล้วระบบจะสร้างคิวครั้งที่ ' + next.serviceNo + ' ให้อัตโนมัติ — ครบกำหนด '
+                + due.getDate() + ' ' + thaiMonthsShort[due.getMonth()] + ' ' + String(due.getFullYear() + 543).slice(-2)
+                + ' (อีก ' + next.months + ' เดือนนับจากวันที่รถเข้า)';
+        }
+
+        completeDate.addEventListener('input', () => completing && renderCompleteNote());
+
         window.openComplete = function (id) {
             const item = completable[id];
             if (!item) return;
 
+            completing = item;
             completeForm.action = item.url;
             document.getElementById('completeWho').textContent = item.name;
-            document.getElementById('completeNote').textContent = item.next;
             document.getElementById('completeMileage').value = '';
+
+            const today = isoDate(new Date());
+            completeDate.min = item.minDate;
+            completeDate.max = today;
+            completeDate.value = today;
+            renderCompleteNote();
 
             completeDialog.showModal();
         };

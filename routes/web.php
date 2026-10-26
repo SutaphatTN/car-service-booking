@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\AppointmentHistoryController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BrandSwitchController;
 use App\Http\Controllers\CalendarController;
@@ -86,8 +87,15 @@ Route::middleware('auth')->group(function () {
         Route::patch('work/{job}', [TechnicianWorkController::class, 'update'])->name('work.update');
         Route::delete('work/{job}', [TechnicianWorkController::class, 'destroy'])->name('work.destroy');
 
-        // รายชื่อช่าง — admin เท่านั้น
+        // รายชื่อช่าง และประวัติการนัดหมาย (แก้งานที่ปิดไปแล้วได้) — admin เท่านั้น
         Route::middleware('role:admin')->group(function () {
+            Route::get('history', [AppointmentHistoryController::class, 'index'])->name('history.index');
+            Route::get('history/{appointment}', [AppointmentHistoryController::class, 'edit'])->name('history.edit');
+            Route::patch('history/{appointment}', [AppointmentHistoryController::class, 'update'])->name('history.update');
+            Route::patch('history/{appointment}/calls/{callLog}', [AppointmentHistoryController::class, 'updateCall'])
+                ->scopeBindings()
+                ->name('history.calls.update');
+
             Route::get('technicians', [TechnicianController::class, 'index'])->name('technicians.index');
             Route::post('technicians', [TechnicianController::class, 'store'])->name('technicians.store');
             Route::patch('technicians/{technician}', [TechnicianController::class, 'update'])->name('technicians.update');

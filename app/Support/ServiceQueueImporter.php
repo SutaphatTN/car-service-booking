@@ -196,7 +196,8 @@ class ServiceQueueImporter
             return null;
         }
 
-        $closedAt = $done->completed_at ?? $done->declined_at ?? now();
+        // นับจากวันที่รถเข้าจริงที่เลือกตอนปิดงาน ไม่ใช่วันที่กด — ผู้ใช้กดปิดช้ากว่าวันที่รถเข้าได้
+        $closedAt = $done->serviced_at ?? $done->completed_at ?? $done->declined_at ?? now();
 
         $next = ServiceSchedule::nextAfterService(
             $done->brand?->name ?? '', $done->model_id, Carbon::parse($closedAt), $done->service_no
