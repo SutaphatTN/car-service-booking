@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function () {
         Route::get('appointments/vin-lookup', [AppointmentController::class, 'lookupVin'])
             ->name('appointments.vin-lookup');
         // แก้ไข/ยกเลิกการยืนยัน — เฉพาะผู้ใช้ใน APPOINTMENT_EDITOR_IDS (ตรวจใน request/controller)
+        // sa แก้ไขนัดที่ยืนยันแล้วได้ผ่าน update (User::canReschedule)
         Route::patch('appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
         Route::patch('appointments/{appointment}/unconfirm', [AppointmentController::class, 'unconfirm'])
             ->name('appointments.unconfirm');

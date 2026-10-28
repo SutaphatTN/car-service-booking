@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 /**
  * แก้ไขนัดหมาย — เฉพาะผู้ใช้ที่ได้รับสิทธิ์ (User::canEditAppointments)
+ * หรือ sa เลื่อนวันเวลานัดที่ยืนยันแล้ว (User::canReschedule)
  *
  * คิวที่ดึงมาจากฝ่ายขาย แก้ได้แค่วันเวลานัด เลขไมล์ และหมายเหตุ
  * ข้อมูลลูกค้า/รถเป็นของฝ่ายขาย แก้ตรงนี้ไปรอบ import ถัดไปก็ถูกทับกลับอยู่ดี
@@ -15,7 +16,7 @@ class UpdateAppointmentRequest extends StoreAppointmentRequest
 
     public function authorize(): bool
     {
-        return (bool) $this->user()?->canEditAppointments();
+        return (bool) $this->user()?->canEditAppointment($this->route('appointment'));
     }
 
     /**

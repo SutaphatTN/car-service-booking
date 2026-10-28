@@ -5,8 +5,8 @@
 @php
     // ค่าตั้งต้นคือ 'open' จึงไม่ต้องติดไปใน URL ลิงก์จะได้สั้นและเป็นค่ามาตรฐาน
     $keepStatus = $status === 'open' ? [] : ['status' => $status];
-    // ปุ่มแก้ไข — เฉพาะผู้ใช้ใน APPOINTMENT_EDITOR_IDS
-    $canEdit = auth()->user()->canEditAppointments();
+    // ปุ่มแก้ไข — ผู้ใช้ใน APPOINTMENT_EDITOR_IDS แก้ได้ทุกนัด, sa เลื่อนวันเวลาได้เฉพาะนัดที่ยืนยันแล้ว
+    $canEdit = auth()->user()->canEditAppointments() || auth()->user()->isSa();
     $statusUrl = fn (string $key) => route('appointments.index', array_filter([
         'q' => $search,
         'status' => $key === 'open' ? null : $key,
@@ -179,7 +179,7 @@
                                     </button>
                                 @endif
 
-                                @if ($canEdit)
+                                @if (auth()->user()->canEditAppointment($appointment))
                                     <button type="button" class="icon-btn act-edit" data-tip="แก้ไขนัดหมาย"
                                             aria-label="แก้ไขนัดหมาย" onclick="openEdit({{ $appointment->id }})">
                                         <svg class="ic" aria-hidden="true"><use href="#ic-edit"></use></svg>
@@ -476,12 +476,13 @@
 
         @if ($canEdit)
             @php
-                $editable = $appointments->mapWithKeys(fn ($a) => [$a->id => [
+                $fullEdit = auth()->user()->canEditAppointments();
+                $editable = $appointments->filter(fn ($a) => auth()->user()->canEditAppointment($a))->mapWithKeys(fn ($a) => [$a->id => [
                     'name' => $a->fullName(),
                     'url' => route('appointments.update', $a),
                     'fromSales' => $a->isFromSales(),
-                    // ยกเลิกการยืนยันได้เฉพาะคิวจากฝ่ายขายที่ยืนยันแล้วและยังไม่ปิด
-                    'unconfirmUrl' => $a->isFromSales() && $a->confirmed_at && ! $a->completed_at && ! $a->declined_at
+                    // ยกเลิกการยืนยันได้เฉพาะคิวจากฝ่ายขายที่ยืนยันแล้วและยังไม่ปิด (sa ที่แค่เลื่อนนัดไม่ได้สิทธิ์นี้)
+                    'unconfirmUrl' => $fullEdit && $a->isFromSales() && $a->confirmed_at && ! $a->completed_at && ! $a->declined_at
                         ? route('appointments.unconfirm', $a) : null,
                     'title_id' => $a->title_id,
                     'first_name' => $a->first_name,

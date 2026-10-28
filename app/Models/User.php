@@ -56,6 +56,21 @@ class User extends Authenticatable
         return in_array($this->id, config('app.appointment_editor_ids', []), true);
     }
 
+    /**
+     * sa แก้ไขนัดได้เฉพาะสถานะ "ยืนยันนัดหมาย" — กรณีลูกค้าโทรมาขอเลื่อน
+     * (ยกเลิกการยืนยันนัดยังเป็นของผู้ใช้ใน APPOINTMENT_EDITOR_IDS เท่านั้น)
+     */
+    public function canReschedule(Appointment $appointment): bool
+    {
+        return $this->isSa() && $appointment->statusKey() === 'booked';
+    }
+
+    /** เปิดฟอร์มแก้ไขนัดนี้ได้ไหม — แก้เต็ม หรือเลื่อนวันเวลาอย่างเดียว */
+    public function canEditAppointment(Appointment $appointment): bool
+    {
+        return $this->canEditAppointments() || $this->canReschedule($appointment);
+    }
+
     /** จัดการรายชื่อช่าง ทำได้เฉพาะ admin */
     public function canManageTechnicians(): bool
     {
