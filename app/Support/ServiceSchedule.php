@@ -34,12 +34,12 @@ class ServiceSchedule
         ],
     ];
 
-    /** รุ่น GWM ตระกูล Ora — เช็คทุก 6 เดือน ไม่มีกำหนดจบ */
-    private const GWM_ORA_MODELS = [17, 18, 22, 23];
+    /** รุ่น GWM ตระกูล Ora — เช็คทุก 6 เดือน ไม่มีกำหนดจบ (ยกเว้น ORA 5 EV id 17 ที่เช็คทุก 12 เดือนเหมือน GWM รุ่นอื่น) */
+    private const GWM_ORA_MODELS = [18, 22, 23];
 
     private const GWM_ORA_INTERVAL_MONTHS = 6;
 
-    /** GWM รุ่นอื่น — เช็คทุก 12 เดือน ไม่มีกำหนดจบ */
+    /** GWM รุ่นอื่น รวมถึง ORA 5 EV — เช็คทุก 12 เดือน ไม่มีกำหนดจบ */
     private const GWM_DEFAULT_INTERVAL_MONTHS = 12;
 
     /**
